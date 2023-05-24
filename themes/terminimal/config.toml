@@ -1,19 +1,16 @@
-# The URL the site will be built for
-base_url = "/"
+# Be sure to change these!
+base_url = "https://pawroman.github.io/zola-theme-terminimal"
+title = "Zola Terminimal theme"
 
-# Whether to automatically compile all Sass files in the sass directory
+# Sass compilation is required
 compile_sass = true
-
-# Whether to build a search index to be used later on by a JavaScript library
-build_search_index = false
-
-theme = "terminimal"
 
 # Optional: enable tags
 taxonomies = [
     {name = "tags"}
 ]
 
+# Code highlighting
 [markdown]
 highlight_code = true
 highlight_theme = "boron"
@@ -31,7 +28,7 @@ accent_color = "blue"
 background_color = "blue"
 
 # The logo text - defaults to "Terminimal theme"
-logo_text = "Binary Banter"
+logo_text = "Terminimal theme"
 
 # The logo link - defaults to base_url.
 #logo_home_link = "/take/me/away!"
@@ -54,11 +51,11 @@ menu_items = [
     # tags should only be enabled if you have "tags" taxonomy
     # see documentation below for more details
     {name = "tags", url = "$BASE_URL/tags"},
-    #{name = "archive", url = "$BASE_URL/archive"},
-    #{name = "about me", url = "$BASE_URL/about"},
+    {name = "archive", url = "$BASE_URL/archive"},
+    {name = "about me", url = "$BASE_URL/about"},
 
     # set newtab to true to make the link open in new tab
-    {name = "github", url = "https://github.com/JonathanBrouwer/binary_banter", newtab = true},
+    {name = "github", url = "https://github.com/pawroman/zola-theme-terminimal", newtab = true},
 ]
 
 # Whether to show links to earlier and later (aka. higher/lower) posts
