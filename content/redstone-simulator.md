@@ -63,7 +63,22 @@ We also want to clearly indicate what was not in the scope of this project:
 # How Does Redstone Work Anyway?
 
 For those not familiar with Minecraft redstone, or have maybe forgotten by now, this section will serve as a brief
-overview of all the blocks we will be simulating.
+overview of all the blocks we will be simulating. The following enum shows all the possible blocks that can be simulated.
+
+```rust
+pub enum CBlock {
+    Redstone(CRedstone),
+    SolidWeak(CSolidWeak),
+    SolidStrong(CSolidStrong),
+    Trigger(CTrigger),
+    Probe(CProbe),
+    Repeater(CRepeater),
+    SRepeater(CSRepeater),
+    RedstoneBlock(CRedstoneBlock),
+    Torch(CTorch),
+    Comparator(CComparator),
+}
+```
 
 ## Redstone Timing and Updates
 
@@ -165,6 +180,15 @@ Two modes:
 - Compare: Output strength = rear if side <= rear
 - Subtract: Output strength = rear - side
 
+## Triggers and Probes
+
+Triggers and probes are not really blocks that exist in Minecraft, but that will be necessary for any useful analysis.
+During the parsing of the world, we read in all gold blocks and lightning rods as triggers and all diamond blocks as probes.
+Additionally, probes can be given by a name by placing a sign on any of its faces. 
+The name will be the text on the first line of the sign, otherwise the probe simply gets its coordinates as its name.
+
+Functionally speaking triggers and probes will both act as solid blocks, where the trigger can be turned into a redstone block for 1 tick.
+
 ## Debouncing
 
 Repeaters, torches, and comparators in minecraft have a behaviour that is not well documented that we like to call
@@ -184,36 +208,17 @@ These schematics are stored in [Named Binary Tag](https://minecraft.fandom.com/w
 We would highly recommend playing around with [NBTExplorer](https://github.com/jaquadro/NBTExplorer) if you want to see
 what your schematics look like (it definitely helped us!).
 
-During the parsing process we will be creating a 4D Vector of *construction blocks* (`CBlock`s) that looks like
-this `Vec<Vec<Vec<Vec<CBlock>>>>`.
-Here is an enum of all possible variants:
-
-```rust
-pub enum CBlock {
-    Redstone(CRedstone),
-    SolidWeak(CSolidWeak),
-    SolidStrong(CSolidStrong),
-    Trigger(CTrigger),
-    Probe(CProbe),
-    Repeater(CRepeater),
-    SRepeater(CSRepeater),
-    RedstoneBlock(CRedstoneBlock),
-    Torch(CTorch),
-    Comparator(CComparator),
-}
-```
-
 In order to make these files more manageable we constructed the following structs using
 the [hematite-nbt](https://crates.io/crates/hematite-nbt) and [serde](https://crates.io/crates/serde) crates:
 
 ```rust
 pub struct SchemFormat {
-    pub width: i16,
     // length across x-axis
-    pub height: i16,
+    pub width: i16,
     // length across y-axis
-    pub length: i16,
+    pub height: i16,
     // length across z-axis
+    pub length: i16,
 
     pub block_data: Vec<i8>,
     pub palette: HashMap<String, i32>,
@@ -234,13 +239,15 @@ The goal now is to map the `block_data` field, using the `palette` field, to a u
 world data.
 Unfortunately there are two issues that arise, the first is that `palette` stores a map from string identifiers to
 unique `i32`s.
-Instead, we would like to have a vector to look up what block should be where.
-The second issue is that for big enough worlds the palette contains more blocks than can be represented by an `i8` from
-the `block_data` field.
+Instead, we would like to have a vector to look up what construction blocks should be where.
+The second issue is that for we need to decode the `block_data` field, which contains indices into the palette.
 Let's tackle the first issue first!
 
+We will create a 2D vector of construction blocks, where the final axis can contain multiple construction blocks, such as for solid blocks.
+This can be achieved by sorting the given palette by its keys and then mapping these keys to construction blocks.
+
 ```rust
-    fn create_palette(format: &SchemFormat) -> Vec<Vec<CBlock>> {
+fn create_palette(format: &SchemFormat) -> Vec<Vec<CBlock>> {
     format
         .palette
         .iter()
@@ -250,21 +257,37 @@ Let's tackle the first issue first!
 }
 ```
 
-- tile entity (block entity)
+The second issue is a bit more involved.
+The `block_data` field stores the blocks in the schematic in YZX order, with the X coordinate varying the fastest.
+However, if you paid close attention you might have noticed that it contains `i8`s instead of `i32`s, indicating that there is something extra happening.
+
+What is happening is that the block data is encoded using a [variable-width encoding](https://en.wikipedia.org/wiki/Variable-width_encoding), 
+which means that if the leading bit of a byte is 1, the next byte is also a part of the block's index. Here are some examples:
+* \[0b0xxx_xxxx\] -> 0b0xxx_xxxx.
+* \[0b1yyy_yyyy, 0b0xxx_xxxx\] -> 0b00yy_yyyy_yxxx_xxxx.
+
+To read the next identifier, we used the following code:
+
+```rust
+let mut read_head = 0;
+let mut read_next = | | {
+    let mut ix: usize = 0;
+    for j in 0.. {
+        let next = format.block_data[read_head];
+        ix |= (next as usize & 0b0111_1111) << (j * 7);
+        read_head += 1;
+
+        if next > = 0 {
+            break;
+        }
+    }
+    ix
+};
+```
 
 A block entity (also known as tile entity) is extra data that is associated with a block.
 This is used because the limited set of data that can be stored in a blocks properties is often not enough.
 For example, chests can store many items. [Comparators are also block entities](#comparators-are-tile-entities).
-
-Highlights:
-
-- block_data encodes the world
--
-
-- talk about construction blocks
-- talk about creating a palette for these construction blocks (and the marker-on-msb-encoding)
-
-[//]: # (TODO)
 
 <br />
 
@@ -304,23 +327,32 @@ In the late-updates phase, we go through the list of blocks that was marked for 
 We check if the blocks output should change, and if it should we add its neighbours to the intra-tick updates queue of
 the next tick.
 
-## Blocks
-
-- Air is empty vec
-- Solid creates two blocks for weak/solid (expand on this, show example)
-- All other blocks just one block
-
 ## Simulating the World as a Graph
 
-## Creating a Graph
+The array-based representation of the world is the one that is closest to reality, and it would allow simulating things such as pistons easily. 
+It is however also very inefficient, a lot of the neighbours are irrelevant and we constantly need to iterate over all our neighbours to check which ones are blocks that may need to be updated.
 
-- Observation!: Each block has 3 types of neighbours
-    - Rear inputs
-    - Side inputs (not relevant for some blocks)
-    - Output
-- These lists are static, they don't change during simulation (this is the advantage of not simulating pistons)
-- Why not pre-compute them and store the blocks as nodes in a graph
-- Picture: Side-by-side redstone circuit and corresponding graph
+An observation that we made is that each block has three lists of neighbours, and these lists remain constant throughout the simulation. 
+The lists are as follows:
+* Output neighbors: Blocks that are powered by the current block.
+* Rear inputs: Blocks that provide power to the current block from the rear. For blocks with no side inputs, every input is considered as a rear input.
+* Side inputs: Blocks that provide power to the current block from the side.
+
+We can represent this data as a graph where the blocks are nodes, and the connections between them are edges. 
+These edges are divided into rear and side edges, which are weighted by the signal strength loss between the source and target block.
+Below we show the same circuit both in minecraft and as a graph. 
+
+{{ image(src="assets/example_minecraft.png", position="left", style="width: 70%; border-radius: 8px;") }}
+<br />
+{{ image(src="assets/example_graph.png", position="right", style="width: 70%; border-radius: 8px;") }}
+
+Notice that:
+* The color of the graph node corresponds to the type of block
+* The edge between the repeaters is gray: It is a side edge.
+* The solid block generated two nodes: The weak and strong node. The strong node is unused here (it only has outgoing neighbours, no incoming ones).
+
+ 
+## Creating a Graph
 
 To know if there is an edge between two blocks in the graph, check between each neighbouring pair of blocks:
 
@@ -360,7 +392,7 @@ We can now simulate blocks in the graph as we did before, during direct simulati
 
 <br />
 
-# The "Minecraft is Weird" Section
+# The "Minecraft is Cursed" Section
 
 ## Order Matters for Tick Updates
 
