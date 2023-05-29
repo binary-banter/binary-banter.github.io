@@ -60,6 +60,10 @@ img {
   display: block;
   max-width: 100%;
 
+  &.inline {
+    display: inline;
+  }
+
   &.left {
     margin-right: auto;
   }

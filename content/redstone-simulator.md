@@ -6,13 +6,10 @@ date = 2023-05-25
 tags = ["rust", "minecraft", "redstone"]
 +++
 
-TODO:
-- highlight words
-- images next to eachother
-- tables full-width
-- comparator
-- clarify the goal in "Parsing the World from a Schematic"
-- performance ✨
+[//]: # (TODO:)
+[//]: # (- comparator)
+[//]: # (- clarify the goal in "Parsing the World from a Schematic")
+[//]: # (- performance ✨)
 
 # Table of Contents
 
@@ -108,25 +105,90 @@ For this reason we have decided *not* to go with this implementation for our red
 
 ## Weak and Strong Power
 
-In Minecraft, blocks emit a form of power we will call *signal strength*, which can be categorized into two variations:
-*weak power* and *strong power*. It is important to note that different blocks emit different types of power, and that
+In Minecraft, blocks emit a form of power we will call <emph>signal strength</emph>, which can be categorized into two variations:
+<emph>weak power</emph> and <emph>strong power</emph>. It is important to note that different blocks emit different types of power, and that
 not all blocks can accept both types of power.
 
 In both variations, the signal strength ranges from 0 to 15. If a block receives a signal strength of at least 1, it is
-considered to be in the *on* state. Otherwise, it is considered to be in the *off* state.
+considered to be in the <emph>on</emph> state. Otherwise, it is considered to be in the <emph>off</emph> state.
 
 In the following table we show how blocks can connect. An "X" means the blocks can connect unconditionally, whereas some
 blocks can only connect to the rear of other blocks.
 
-| Emitter \ Receiver | Wire | Solid (Weak) | Solid (Strong) | Repeater | Torch | Comparator |
-|--------------------|------|--------------|----------------|----------|-------|------------|
-| Wire               | X    | X            |                | Rear     |       | X          |
-| Solid (Weak)       |      |              |                | Rear     | X     | Rear       |
-| Solid (Strong)     | X    |              |                | Rear     | X     | Rear       |
-| Redstone Block     | X    |              |                | Rear     | X     | X          |
-| Repeater           | X    |              | X              | X        |       | X          |
-| Torch              | X    |              | *1             | Rear     |       | Rear       |
-| Comparator         | X    |              | X              | X        |       | X          |
+<table style="text-align: center">
+  <tr>
+    <th>Emitter \ Receiver</th>
+    <th>Wire</th>
+    <th>Solid (Weak)</th>
+    <th>Solid (Strong)</th>
+    <th>Repeater</th>
+    <th>Torch</th>
+    <th>Comparator</th>
+  </tr>
+  <tr>
+    <th>Wire</th>
+    <td>X</td>
+    <td>X</td>
+    <td></td>
+    <td>Rear</td>
+    <td></td>
+    <td>X</td>
+  </tr>
+  <tr>
+    <th>Solid (Weak)</th>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td>Rear</td>
+    <td>X</td>
+    <td>Rear</td>
+  </tr>
+  <tr>
+    <th>Solid (Strong)</th>
+    <td>X</td>
+    <td></td>
+    <td></td>
+    <td>Rear</td>
+    <td>X</td>
+    <td>Rear</td>
+  </tr>
+  <tr>
+    <th>Redstone Block</th>
+    <td>X</td>
+    <td></td>
+    <td></td>
+    <td>Rear</td>
+    <td>X</td>
+    <td>X</td>
+  </tr>
+  <tr>
+    <th>Repeater</th>
+    <td>X</td>
+    <td></td>
+    <td>X</td>
+    <td>X</td>
+    <td></td>
+    <td>X</td>
+  </tr>
+  <tr>
+    <th>Torch</th>
+    <td>X</td>
+    <td></td>
+    <td>*1</td>
+    <td>Rear</td>
+    <td></td>
+    <td>Rear</td>
+  </tr>
+  <tr>
+    <th>Comparator</th>
+    <td>X</td>
+    <td></td>
+    <td>X</td>
+    <td>X</td>
+    <td></td>
+    <td>X</td>
+  </tr>
+</table>
 
 1. Only if the solid block is *above* the torch.
 
@@ -137,23 +199,37 @@ any cardinal direction and can traverse one level up or down.
 
 When redstone wire is placed on a block, it provides weak power to that block as well as to all the blocks it faces.
 However, when wires connect to other wires, they lose 1 signal strength per block traveled.
-This means that after traversing 15 blocks, the signal strength of the wire will be completely depleted.
+This means that after traversing 15 blocks, the signal strength of the wire will be completely depleted. 
+This can be seen in the image below on the left. 
+The ways in which redstone can connect up and down is shown in image on the right.
+Note that transparent blocks such as glass allow connections upwards *but* not downwards.
+Also note that signals moving upwards are not blocked by transparent blocks.
 
-{{ image(src="assets/redstone_wire.png", alt="Redstone wire *on* and *off*.", position="center", style="width: 60%;
-border-radius: 8px;") }}
+{{ image(src="assets/redstone_wire1.png", position="inline", style="width: 49%; border-radius: 8px;") }}
+{{ image(src="assets/redstone_wire2.png", position="inline", style="width: 49%; border-radius: 8px;") }}
 
 ## Solid Blocks
 
 Redstone signals can travel through regular solid blocks. It is important to note that solid blocks behave differently
 when they receive and emit weak and strong powered signals (see [table](#weak-and-strong-power)).
-For this reason we have split the Solid block into two different blocks: Solid (Weak) and Solid (Strong), that just
+For this reason we have split the solid block into two different blocks: Solid (Weak) and Solid (Strong), that just
 happen to occupy the same space.
-This distinction will also lead to an easier implementation later on when we start talking about *construction blocks*.
+This distinction will also lead to an easier implementation later on when we start talking about <emph>construction blocks</emph>.
+
+In the image below the different behaviours of solid blocks are presented. 
+From left to right we see a block that receives weak power, a block that receives strong power and lastly a block that receives weak power. 
+Note that in the left case the signal stays on because a repeater is used.
+
+{{ image(src="assets/solids.png", position="center", style="width: 80%; border-radius: 8px;") }}
 
 ## Redstone Blocks
 
 Redstone blocks are the simplest blocks to understand. They provide weak power to any block they touch (excluding solid
-blocks) with a constant signal strength of 15.
+blocks) with a signal strength of 15.
+
+In the image below, the behaviour of a redstone block is shown. It simply acts as a constant power source to all its surrounding blocks.
+
+{{ image(src="assets/redstone_block.png", position="center", style="width: 80%; border-radius: 8px;") }}
 
 ## Repeaters
 
@@ -164,22 +240,30 @@ This means that for any signal that is *on*, the repeater will emit a strong pow
 Additionally, repeaters have a configurable delay setting that ranges from 1 tick to 4 ticks.
 It is common to refer to a repeater by the number of ticks delay it causes, e.g. *a 2-tick repeater*.
 This means that it will take however many ticks of delay was set before a change on the input side is detected on the
-output side.
-There are some technicalities involved with how this works precisely, which are discusses in the subsection
+output side. The gif on the left below shows how a clock can be made using different delays.
+There are some technicalities involved with how repeater timing works precisely, which are discussed in the subsection
 on [Debouncing](#debouncing).
 
-Finally, repeaters can be *locked* by providing an *on* signal from either of their two side inputs.
-A locked repeater will retain the signal that was emitted on the tick before being locked.
+Finally, repeaters can be <emph>locked</emph> by providing an *on* signal from either of their two side inputs.
+A locked repeater will retain the signal that was emitted on the tick before being locked. 
+An example of a locking repeater can be seen in the image below on the right.
+
+<video width="49%" autoplay muted loop style="border-radius: 8px">
+  <source src="assets/repeater_loop.mp4" type="video/mp4">
+</video> 
+{{ image(src="assets/repeater_locking.png", position="inline", style="width: 49%; border-radius: 8px;") }}
 
 ## Torches
 
-Torches are also directed blocks, that invert the signal they receive on their input side, and output it all other
+Torches are also directed blocks. They invert the signal they receive on their input side, and output it to all other
 sides.
-This means that for any signal that is *on* and *off*, the torch will output a strong power of 0 and 15 respectively.
-Similarly to repeaters, torches have a delay of 1 tick before propagating signals. <apple>pizza</apple>
+This means that if the input signal is *on*, the torch will output a strong power of 0, while if the input signal is *off*, it will output a strong power of 15.
+Additionally, torches, like repeaters, introduce a delay of 1 tick before propagating signals.
 
-It should be noted that torches *burn out* if they are toggled more than 8 times in 30 ticks.
+It should be noted that torches <emph>burn out</emph> if they are toggled more than 8 times in 30 ticks.
 We have decided *not* to include this behaviour since it is unlikely to be present in most redstone contraptions.
+
+{{ image(src="assets/torch.png", position="center", style="width: 80%; border-radius: 8px;") }}
 
 ## Comparators
 
@@ -200,7 +284,7 @@ Functionally speaking triggers and probes will both act as solid blocks, where t
 ## Debouncing
 
 Repeaters, torches, and comparators in minecraft have a behaviour that is not well documented that we like to call
-*debouncing*. These blocks can't see 1-tick redstone input pulses, they will completely ignore these, but only
+<emph>debouncing</emph>. These blocks can't see 1-tick redstone input pulses, they will completely ignore these, but only
 *sometimes*. We're still not entirely sure how exactly this works, but we decided that no sane person would rely on this
 behaviour in their redstone circuits, so we decided against including this behaviour in the simulator. If you do know
 exactly how this works, please let us know!
@@ -306,7 +390,7 @@ simulating a world.
 
 ## Array-Based Simulation
 
-Our first attempt at simulating redstone was an *array-based simulation*.
+Our first attempt at simulating redstone was an <emph>array-based</emph> simulation.
 We simulated the world the same way that Minecraft does, by storing the blocks in a 3D list that represents the world.
 However, because air blocks generate no blocks, and solid blocks generate two blocks (weak and strong), we actually need
 a 4D list, the last axis representing the list of blocks at a certain position,
@@ -350,9 +434,8 @@ We can represent this data as a graph where the blocks are nodes, and the connec
 These edges are divided into rear and side edges, which are weighted by the signal strength loss between the source and target block.
 Below we show the same circuit both in minecraft and as a graph. 
 
-{{ image(src="assets/example_minecraft.png", position="left", style="width: 70%; border-radius: 8px;") }}
-<br />
-{{ image(src="assets/example_graph.png", position="right", style="width: 70%; border-radius: 8px;") }}
+{{ image(src="assets/example_minecraft.png", position="inline", style="width: 49%; border-radius: 8px;") }}
+{{ image(src="assets/example_graph.png", position="inline", style="width: 49%; border-radius: 8px;") }}
 
 Notice that:
 * The color of the graph node corresponds to the type of block
@@ -370,15 +453,80 @@ To know if there is an edge between two blocks in the graph, check between each 
     - For example: Repeater has rear input in one direction, side inputs in two directions
 - Can connect: Are these two blocks "compatible", see table:
 
-| Emitter \ Receiver | Wire | Solid (Weak) | Solid (Strong) | Repeater | Torch | Comparator |
-|--------------------|------|--------------|----------------|----------|-------|------------|
-| Wire               | X    | X            |                | Rear     |       | X          |
-| Solid (Weak)       |      |              |                | Rear     | X     | Rear       |
-| Solid (Strong)     | X    |              |                | Rear     | X     | Rear       |
-| Redstone Block     | X    |              |                | Rear     | X     | X          |
-| Repeater           | X    |              | X              | X        |       | X          |
-| Torch              | X    |              | *1             | Rear     |       | Rear       |
-| Comparator         | X    |              | X              | X        |       | X          |
+<table style="text-align: center; font-size: 10">
+  <tr>
+    <th>Emitter \ Receiver</th>
+    <th>Wire</th>
+    <th>Solid (Weak)</th>
+    <th>Solid (Strong)</th>
+    <th>Repeater</th>
+    <th>Torch</th>
+    <th>Comparator</th>
+  </tr>
+  <tr>
+    <th>Wire</th>
+    <td>X</td>
+    <td>X</td>
+    <td></td>
+    <td>Rear</td>
+    <td></td>
+    <td>X</td>
+  </tr>
+  <tr>
+    <th>Solid (Weak)</th>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td>Rear</td>
+    <td>X</td>
+    <td>Rear</td>
+  </tr>
+  <tr>
+    <th>Solid (Strong)</th>
+    <td>X</td>
+    <td></td>
+    <td></td>
+    <td>Rear</td>
+    <td>X</td>
+    <td>Rear</td>
+  </tr>
+  <tr>
+    <th>Redstone Block</th>
+    <td>X</td>
+    <td></td>
+    <td></td>
+    <td>Rear</td>
+    <td>X</td>
+    <td>X</td>
+  </tr>
+  <tr>
+    <th>Repeater</th>
+    <td>X</td>
+    <td></td>
+    <td>X</td>
+    <td>X</td>
+    <td></td>
+    <td>X</td>
+  </tr>
+  <tr>
+    <th>Torch</th>
+    <td>X</td>
+    <td></td>
+    <td>*1</td>
+    <td>Rear</td>
+    <td></td>
+    <td>Rear</td>
+  </tr>
+  <tr>
+    <th>Comparator</th>
+    <td>X</td>
+    <td></td>
+    <td>X</td>
+    <td>X</td>
+    <td></td>
+    <td>X</td>
+  </tr>
+</table>
 
 1. Only if the solid block is *above* the torch.
 
