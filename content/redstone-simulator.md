@@ -38,7 +38,7 @@ circuitry!
 The source code for this project is available on [GitHub](https://github.com/JonathanBrouwer/redstone-simulator) and was
 written for Minecraft version 1.19.
 
-{{ image(src="assets/cpu.png", alt="CPU in Minecraft", position="left", style="border-radius: 8px;") }}
+{{ image(src="assets/redstone-simulator/cpu.png", alt="CPU in Minecraft", position="left") }}
 
 <br />
 
@@ -204,8 +204,8 @@ The ways in which redstone can connect up and down is shown in image on the righ
 Note that transparent blocks such as glass allow connections upwards *but* not downwards.
 Also note that signals moving upwards are not blocked by transparent blocks.
 
-{{ image(src="assets/redstone_wire1.png", position="inline", style="width: 49%; border-radius: 8px;") }}
-{{ image(src="assets/redstone_wire2.png", position="inline", style="width: 49%; border-radius: 8px;") }}
+{{ image(src="assets/redstone-simulator/redstone_wire1.png", position="inline", style="width: 49%;") }}
+{{ image(src="assets/redstone-simulator/redstone_wire2.png", position="inline", style="width: 49%;") }}
 
 ## Solid Blocks
 
@@ -219,7 +219,7 @@ In the image below the different behaviours of solid blocks are presented.
 From left to right we see a block that receives weak power, a block that receives strong power and lastly a block that receives weak power. 
 Note that in the left case the signal stays on because a repeater is used.
 
-{{ image(src="assets/solids.png", position="center", style="width: 80%; border-radius: 8px;") }}
+{{ image(src="assets/redstone-simulator/solids.png", position="center", style="width: 80%;") }}
 
 ## Redstone Blocks
 
@@ -228,7 +228,7 @@ blocks) with a signal strength of 15.
 
 In the image below, the behaviour of a redstone block is shown. It simply acts as a constant power source to all its surrounding blocks.
 
-{{ image(src="assets/redstone_block.png", position="center", style="width: 80%; border-radius: 8px;") }}
+{{ image(src="assets/redstone-simulator/redstone_block.png", position="center", style="width: 80%;") }}
 
 ## Repeaters
 
@@ -248,9 +248,9 @@ A locked repeater will retain the signal that was emitted on the tick before bei
 An example of a locking repeater can be seen in the image below on the right.
 
 <video width="49%" autoplay muted loop style="border-radius: 8px">
-  <source src="assets/repeater_loop.mp4" type="video/mp4">
+  <source src="assets/redstone-simulator/repeater_loop.mp4" type="video/mp4">
 </video> 
-{{ image(src="assets/repeater_locking.png", position="inline", style="width: 49%; border-radius: 8px;") }}
+{{ image(src="assets/redstone-simulator/repeater_locking.png", position="inline", style="width: 49%;") }}
 
 ## Torches
 
@@ -262,7 +262,7 @@ Additionally, torches, like repeaters, introduce a delay of 1 tick before propag
 It should be noted that torches <emph>burn out</emph> if they are toggled more than 8 times in 30 ticks.
 We have decided *not* to include this behaviour since it is unlikely to be present in most redstone contraptions.
 
-{{ image(src="assets/torch.png", position="center", style="width: 80%; border-radius: 8px;") }}
+{{ image(src="assets/redstone-simulator/torch.png", position="center", style="width: 80%;") }}
 
 ## Comparators
 
@@ -283,8 +283,8 @@ We have *not* fully implemented this behaviour.
 Instead, we opted to only check for *furnace* blocks behind comparators and always set the input signal strength as 1.
 An example of how this looks in Minecraft can be seen in the image below on the right.
 
-{{ image(src="assets/comp1.png", position="inline", style="width: 49%; border-radius: 8px;") }}
-{{ image(src="assets/comp2.png", position="inline", style="width: 49%; border-radius: 8px;") }}
+{{ image(src="assets/redstone-simulator/comp1.png", position="inline", style="width: 49%;") }}
+{{ image(src="assets/redstone-simulator/comp2.png", position="inline", style="width: 49%;") }}
 
 ## Triggers and Probes
 
@@ -296,7 +296,7 @@ The name will be the text on the first line of the sign, otherwise the probe sim
 Functionally speaking triggers and probes will both act as solid blocks, where the output power of a redstone block can be controlled and the input power of a probe can be measured. 
 This functionality can be used to write tests (which we will speak more about [later](#testing-lots-of-testing)). An example of this can be seen below.
 
-{{ image(src="assets/probes_and_triggers.png", position="center", style="width: 100%; border-radius: 8px;") }}
+{{ image(src="assets/redstone-simulator/probes_and_triggers.png", position="center", style="width: 100%;") }}
 
 ## Debouncing
 
@@ -451,8 +451,8 @@ We can represent this data as a graph where the blocks are nodes, and the connec
 These edges are divided into rear and side edges, which are weighted by the signal strength loss between the source and target block.
 Below we show the same circuit both in minecraft and as a graph. 
 
-{{ image(src="assets/example_minecraft.png", position="inline", style="width: 49%; border-radius: 8px;") }}
-{{ image(src="assets/example_graph.png", position="inline", style="width: 49%; border-radius: 8px;") }}
+{{ image(src="assets/redstone-simulator/example_minecraft.png", position="inline", style="width: 49%;") }}
+{{ image(src="assets/redstone-simulator/example_graph.png", position="inline", style="width: 49%;") }}
 
 Notice that:
 * The color of the graph node corresponds to the type of block
@@ -559,9 +559,59 @@ We can now simulate blocks in the graph as we did before, during direct simulati
 
 [//]: # (picture of our tests in the world)
 
+{{ image(src="assets/redstone-simulator/testing.png", position="center", style="width: 100%;") }}
+
+In order to write tests, we first made schematic files of the circuits to be tested.
+Next, we made assertions on the expected behaviour of this circuit. 
+To make this process manageable we decided to make use of the following <emph>rust macro</emph>: 
+
+```rs
+macro_rules! test {
+    ($file:literal, $name:ident, $triggers: expr; $($b:expr),*) => {
+        #[test]
+        fn $name() {
+            use std::fs::File;
+            use redstone_simulator::world::World;
+
+            let f = File::open(format!("./schematics/{}.schem", $file)).unwrap();
+            let mut world = World::from(f);
+
+            let mut triggers = $triggers;
+
+            $(
+            assert_eq!(world.get_probe(stringify!($name)).unwrap(),$b);
+            if triggers > 0 {
+                world.step_with_trigger();
+                triggers -= 1;
+            } else {
+                world.step();
+            }
+            )*
+        }
+    };
+}
+```
+
+This macro takes the following arguments:
+* file: The name of the schematic file to use for the test.
+* name: The name of the probe (which will also be the test name).
+* triggers: The number of ticks that the triggers will be powered for at the start of the test.
+* booleans: A list of booleans indicating whether the probe is expected to be *on* or *off* on each tick.
+
+A typical test could then be constructed like this:
+```rust
+test!("<file>", <name>, <triggers>; F, F, T, F);
+```
+
+
+
 <br />
 
 # Visualizations
+
+{{ image(src="assets/redstone-simulator/cpu_graph.png", alt="Graph of redstone computer visualized with Gephi.", position="center", style="width: 100%;") }}
+
+{{ image(src="assets/redstone-simulator/cpu_trace.png", alt="Trace of simulated redstone computer in GTKWave.", position="center", style="width: 100%;") }}
 
 <br />
 
@@ -573,7 +623,7 @@ The order in which blocks are processed depends on where the update starts.
 The state at the end of the tick can be different depending on this order.
 In the image below you can see how two levers at different locations can produce different outcomes.
 
-{{ image(src="assets/weird1.gif", alt="Repeaters in a cycle are weird", position="left", style="border-radius: 8px;") }}
+{{ image(src="assets/redstone-simulator/weird1.gif", alt="Repeaters in a cycle are weird", position="left") }}
 
 ## Comparators are Tile Entities
 
