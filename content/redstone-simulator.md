@@ -7,7 +7,6 @@ tags = ["rust", "minecraft", "redstone"]
 +++
 
 [//]: # (TODO:)
-[//]: # (- comparator)
 [//]: # (- clarify the goal in "Parsing the World from a Schematic")
 [//]: # (- performance ✨)
 
@@ -30,7 +29,7 @@ As we made progress and laid the foundation for our CPU, we realized the need to
 before proceeding with additional functionality. However, due to the growing complexity of our contraption, it became
 increasingly difficult to identify the specific areas where delays were most likely to occur. To address this issue, we
 came up with the idea of using external software to simulate our CPU. This approach would enable us to analyze signal
-behavior and probe for potential bottlenecks more easily. And so, the idea for our Redstone Simulator was born.
+behavior and probe for potential bottlenecks more easily. And so, the idea for our <emph>Redstone Simulator</emph> was born.
 
 In this blog, we will delve into the development and functionality of our Redstone Simulator, exploring the difficulties
 and curiosities we came across along the way. Stay tuned for an exciting journey into the world of Minecraft's digital
@@ -92,7 +91,7 @@ them.
 In simple terms, Minecraft performs a redstone update once every 0.1 seconds.
 These updates are commonly referred to as redstone ticks - which we will shorten to ticks for the remainder of this
 blog.
-One way we will talk about the performance of our simulation later is then by mentioning the TPS (ticks per second).
+One way we will talk about the performance of our simulation later is then by mentioning the <emph>TPS</emph> (ticks per second).
 
 So what happens during an update?
 Minecraft keeps track of a list of blocks that need to be updated at the start of a tick, and then proceeds to update
@@ -267,10 +266,25 @@ We have decided *not* to include this behaviour since it is unlikely to be prese
 
 ## Comparators
 
-Two modes:
+Redstone comparators are blocks that can be in two modes: <emph>Compare</emph> and <emph>Subtract</emph>.
+It compares the input signal on the rear to the input signal on either of its sides and then, depending on the mode, will output a signal according to the following:
+```rust
+let output = match mode {
+    Mode::Compare => if side <= rear { rear } else { 0 },
+    Mode::Subtract => max(rear - side, 0),
+}
+```
+This behaviour can be seen in the image below on the left.
+Where the left comparator is in compare mode, and the right comparator is in subtract mode - indicated by the front torch being lit.
 
-- Compare: Output strength = rear if side <= rear
-- Subtract: Output strength = rear - side
+Additionally, comparators can read tile entities behind them and see that as their rear input.
+The specifics of how the input signal should be calculated can be found [here](https://minecraft.fandom.com/wiki/Redstone_Comparator#Measure_block_state).
+We have *not* fully implemented this behaviour. 
+Instead, we opted to only check for *furnace* blocks behind comparators and always set the input signal strength as 1.
+An example of how this looks in Minecraft can be seen in the image below on the right.
+
+{{ image(src="assets/comp1.png", position="inline", style="width: 49%; border-radius: 8px;") }}
+{{ image(src="assets/comp2.png", position="inline", style="width: 49%; border-radius: 8px;") }}
 
 ## Triggers and Probes
 
@@ -279,7 +293,10 @@ During the parsing of the world, we read in all gold blocks and lightning rods a
 Additionally, probes can be given by a name by placing a sign on any of its faces. 
 The name will be the text on the first line of the sign, otherwise the probe simply gets its coordinates as its name.
 
-Functionally speaking triggers and probes will both act as solid blocks, where the trigger can be turned into a redstone block for 1 tick.
+Functionally speaking triggers and probes will both act as solid blocks, where the output power of a redstone block can be controlled and the input power of a probe can be measured. 
+This functionality can be used to write tests (which we will speak more about [later](#testing-lots-of-testing)). An example of this can be seen below.
+
+{{ image(src="assets/probes_and_triggers.png", position="center", style="width: 100%; border-radius: 8px;") }}
 
 ## Debouncing
 
@@ -453,7 +470,7 @@ To know if there is an edge between two blocks in the graph, check between each 
     - For example: Repeater has rear input in one direction, side inputs in two directions
 - Can connect: Are these two blocks "compatible", see table:
 
-<table style="text-align: center; font-size: 10">
+<table style="text-align: center">
   <tr>
     <th>Emitter \ Receiver</th>
     <th>Wire</th>
