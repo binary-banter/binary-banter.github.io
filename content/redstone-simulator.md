@@ -13,7 +13,34 @@ tags = ["rust", "minecraft", "redstone"]
 # Table of Contents
 
 <!-- TOC -->
-
+* [Table of Contents](#table-of-contents)
+* [Why We Do What We Do](#why-we-do-what-we-do)
+* [A Redstone Simulator](#a-redstone-simulator)
+* [How Does Redstone Work Anyway?](#how-does-redstone-work-anyway)
+  * [Redstone Timing and Updates](#redstone-timing-and-updates)
+  * [Weak and Strong Power](#weak-and-strong-power)
+  * [Redstone Wire](#redstone-wire)
+  * [Solid Blocks](#solid-blocks)
+  * [Redstone Blocks](#redstone-blocks)
+  * [Repeaters](#repeaters)
+  * [Torches](#torches)
+  * [Comparators](#comparators)
+  * [Triggers and Probes](#triggers-and-probes)
+  * [Debouncing](#debouncing)
+* [Parsing the World from a Schematic](#parsing-the-world-from-a-schematic)
+* [Simulating the World](#simulating-the-world)
+  * [Array-Based Simulation](#array-based-simulation)
+    * [Intra-Tick Updates](#intra-tick-updates)
+    * [Late-Updates](#late-updates)
+  * [Simulating the World as a Graph](#simulating-the-world-as-a-graph)
+  * [Creating a Graph](#creating-a-graph)
+  * [Pruning the Graph](#pruning-the-graph)
+* [Testing, Lots of Testing](#testing-lots-of-testing)
+* [Visualizations](#visualizations)
+* [The "Minecraft is Cursed" Section](#the-minecraft-is-cursed-section)
+  * [Order Matters for Tick Updates](#order-matters-for-tick-updates)
+  * [Comparators are Tile Entities](#comparators-are-tile-entities)
+* [Coding Experience](#coding-experience)
 <!-- TOC -->
 
 <br />
@@ -438,7 +465,7 @@ the next tick.
 
 ## Simulating the World as a Graph
 
-The array-based representation of the world is the one that is closest to reality, and it would allow simulating things such as pistons easily. 
+The array-based representation of the world is the one that is closest to reality, and it would allow simulating blocks such as pistons easily. 
 It is however also very inefficient, a lot of the neighbours are irrelevant and we constantly need to iterate over all our neighbours to check which ones are blocks that may need to be updated.
 
 An observation that we made is that each block has three lists of neighbours, and these lists remain constant throughout the simulation. 
@@ -447,7 +474,7 @@ The lists are as follows:
 * Rear inputs: Blocks that provide power to the current block from the rear. For blocks with no side inputs, every input is considered as a rear input.
 * Side inputs: Blocks that provide power to the current block from the side.
 
-We can represent this data as a graph where the blocks are nodes, and the connections between them are edges. 
+We can represent this data as a <emph>graph</emph> where the blocks are nodes, and the connections between them are edges. 
 These edges are divided into rear and side edges, which are weighted by the signal strength loss between the source and target block.
 Below we show the same circuit both in minecraft and as a graph. 
 
@@ -555,9 +582,16 @@ We can now simulate blocks in the graph as we did before, during direct simulati
 
 # Testing, Lots of Testing
 
-[//]: # (This chapter will contain information on how we did testing, in code and Minecraft itself to discover how it works.)
+Testing was an integral part to making this project a success. 
+Whenever we could, we tried to make tests on the behaviour we expected of some to be implemented features.
+This not only helped us easily identify regressions in our code, but it also deepened our understanding of the interactions between different blocks.
 
-[//]: # (picture of our tests in the world)
+We created both unit tests and integration tests. 
+The unit tests can be seen in the image below. 
+As you can see we kind of went crazy, but believe it or not, this actually made isolating bugs a lot easier.
+
+For the integration tests, we tested an 8-bit adder and our computer loaded with a Fibonacci program.
+In total, we have written a staggering 127 combined unit and integration tests!
 
 {{ image(src="assets/redstone-simulator/testing.png", position="center", style="width: 100%;") }}
 
