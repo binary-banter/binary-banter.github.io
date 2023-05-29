@@ -6,6 +6,14 @@ date = 2023-05-25
 tags = ["rust", "minecraft", "redstone"]
 +++
 
+TODO:
+- highlight words
+- images next to eachother
+- tables full-width
+- comparator
+- clarify the goal in "Parsing the World from a Schematic"
+- performance ✨
+
 # Table of Contents
 
 <!-- TOC -->
@@ -168,7 +176,7 @@ A locked repeater will retain the signal that was emitted on the tick before bei
 Torches are also directed blocks, that invert the signal they receive on their input side, and output it all other
 sides.
 This means that for any signal that is *on* and *off*, the torch will output a strong power of 0 and 15 respectively.
-Similarly to repeaters, torches have a delay of 1 tick before propagating signals.
+Similarly to repeaters, torches have a delay of 1 tick before propagating signals. <apple>pizza</apple>
 
 It should be noted that torches *burn out* if they are toggled more than 8 times in 30 ticks.
 We have decided *not* to include this behaviour since it is unlikely to be present in most redstone contraptions.
@@ -270,14 +278,14 @@ To read the next identifier, we used the following code:
 
 ```rust
 let mut read_head = 0;
-let mut read_next = | | {
+let mut read_next = || {
     let mut ix: usize = 0;
     for j in 0.. {
         let next = format.block_data[read_head];
         ix |= (next as usize & 0b0111_1111) << (j * 7);
         read_head += 1;
 
-        if next > = 0 {
+        if next >= 0 {
             break;
         }
     }
