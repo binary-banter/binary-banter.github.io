@@ -338,7 +338,9 @@ exactly how this works, please let us know!
 # Parsing the World from a Schematic
 
 Now that we know how all the blocks are supposed to work, we can move on to parsing the world.
-As mentioned before redstone contraptions are commonly saved
+Our objective will be to construct a 4D array of blocks, where the first 3 axes represent positions and the final axis represents the blocks occupying those positions.
+
+As mentioned before, redstone contraptions are commonly saved
 as [schematics](https://minecraft.fandom.com/wiki/Schematic_file_format).
 These schematics are stored in [Named Binary Tag](https://minecraft.fandom.com/wiki/NBT_format) (NBT) format.
 We would highly recommend playing around with [NBTExplorer](https://github.com/jaquadro/NBTExplorer) if you want to see
@@ -465,8 +467,8 @@ the next tick.
 
 ## Simulating the World as a Graph
 
-The array-based representation of the world is the one that is closest to reality, and it would allow simulating blocks such as pistons easily. 
-It is however also very inefficient, a lot of the neighbours are irrelevant and we constantly need to iterate over all our neighbours to check which ones are blocks that may need to be updated.
+The array-based representation of the world is the one that is closest to reality, and it would allow simulating blocks such as pistons more easily. 
+It is however also very inefficient since a lot of an updated block's neighbours are put into the update lists that might not actually need to be updated.
 
 An observation that we made is that each block has three lists of neighbours, and these lists remain constant throughout the simulation. 
 The lists are as follows:
@@ -484,97 +486,25 @@ Below we show the same circuit both in minecraft and as a graph.
 Notice that:
 * The color of the graph node corresponds to the type of block
 * The edge between the repeaters is gray: It is a side edge.
-* The solid block generated two nodes: The weak and strong node. The strong node is unused here (it only has outgoing neighbours, no incoming ones).
+* The solid block generated a weak and strong node. The strong node is unused here, which can be seen by the fact that it only has outgoing neighbours.
 
- 
 ## Creating a Graph
 
-To know if there is an edge between two blocks in the graph, check between each neighbouring pair of blocks:
+So now the question becomes, how do we turn our world data into a usable graph?
+Adding the nodes to the graph is simple enough. However, determining what edges should be added is more involved.
+One problem is that there are many possible connections between the different blocks, where the facing of both blocks matters.
+Additionally, we need to differentiate between *side* and *rear* edges.
 
-- Can output: Does this block output power in the direction of this neighbour?
-    - For example: Repeater can only output power in one direction
-- Can input: Does this block input power in the direction of this neighbour? (If so, rear/side?)
-    - For example: Repeater has rear input in one direction, side inputs in two directions
-- Can connect: Are these two blocks "compatible", see table:
+Our solution to tackling this problem was to split up the logic of whether an edge should exist between two blocks into three parts.
+For each block and its neighbours we check the following:
+1. Does the source block output power in the direction of its neighbour?
+2. Does the neighbor receive power from the direction of the source block?
+3. Can the source block and its neighbour connect? See [table](#weak-and-strong-power).
 
-<table style="text-align: center">
-  <tr>
-    <th>Emitter \ Receiver</th>
-    <th>Wire</th>
-    <th>Solid (Weak)</th>
-    <th>Solid (Strong)</th>
-    <th>Repeater</th>
-    <th>Torch</th>
-    <th>Comparator</th>
-  </tr>
-  <tr>
-    <th>Wire</th>
-    <td>X</td>
-    <td>X</td>
-    <td></td>
-    <td>Rear</td>
-    <td></td>
-    <td>X</td>
-  </tr>
-  <tr>
-    <th>Solid (Weak)</th>
-    <td></td>
-    <td></td>
-    <td></td>
-    <td>Rear</td>
-    <td>X</td>
-    <td>Rear</td>
-  </tr>
-  <tr>
-    <th>Solid (Strong)</th>
-    <td>X</td>
-    <td></td>
-    <td></td>
-    <td>Rear</td>
-    <td>X</td>
-    <td>Rear</td>
-  </tr>
-  <tr>
-    <th>Redstone Block</th>
-    <td>X</td>
-    <td></td>
-    <td></td>
-    <td>Rear</td>
-    <td>X</td>
-    <td>X</td>
-  </tr>
-  <tr>
-    <th>Repeater</th>
-    <td>X</td>
-    <td></td>
-    <td>X</td>
-    <td>X</td>
-    <td></td>
-    <td>X</td>
-  </tr>
-  <tr>
-    <th>Torch</th>
-    <td>X</td>
-    <td></td>
-    <td>*1</td>
-    <td>Rear</td>
-    <td></td>
-    <td>Rear</td>
-  </tr>
-  <tr>
-    <th>Comparator</th>
-    <td>X</td>
-    <td></td>
-    <td>X</td>
-    <td>X</td>
-    <td></td>
-    <td>X</td>
-  </tr>
-</table>
+If the answer to all these questions is "yes", then an edge will be created between the source block and its neighbour.
+In order to determine whether it should be a *side* or *rear* edge we return some extra information while answering question the second question.
 
-1. Only if the solid block is *above* the torch.
-
-We can now simulate blocks in the graph as we did before, during direct simulation.
+We can now simulate blocks in the graph as we did before. However, now we only need to update neighbours that can actually be updated! Yay!
 
 ## Pruning the Graph
 
