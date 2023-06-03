@@ -259,7 +259,7 @@ For this reason we have split the solid block into two different blocks: Solid (
 happen to occupy the same space.
 This distinction will also lead to an easier implementation later on when we start talking about <emph>construction
 blocks</emph>.
-
+weird
 In the image below the different behaviours of solid blocks are presented.
 From left to right we see a block that receives weak power, a block that receives strong power and lastly a block that
 receives weak power.
@@ -749,7 +749,9 @@ The order in which blocks are processed depends on where the update starts.
 The state at the end of the tick can be different depending on this order.
 In the image below you can see how two levers at different locations can produce different outcomes.
 
-{{ image(src="assets/redstone-simulator/weird1.gif", alt="Repeaters in a cycle are weird", position="left") }}
+<video width="100%" autoplay muted loop style="border-radius: 8px">
+  <source src="/assets/redstone-simulator/weird1.mp4" type="video/mp4">
+</video>
 
 ## Comparators are Tile Entities
 
