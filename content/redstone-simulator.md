@@ -295,7 +295,7 @@ A locked repeater will retain the signal that was emitted on the tick before bei
 An example of a locking repeater can be seen in the image below on the right.
 
 <video width="49%" autoplay muted loop style="border-radius: 8px">
-  <source src="assets/redstone-simulator/repeater_loop.mp4" type="video/mp4">
+  <source src="/assets/redstone-simulator/repeater_loop.mp4" type="video/mp4">
 </video> 
 {{ image(src="assets/redstone-simulator/repeater_locking.png", position="inline", style="width: 49%;") }}
 
