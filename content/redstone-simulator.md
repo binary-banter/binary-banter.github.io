@@ -78,7 +78,7 @@ circuitry!
 The source code for this project is available on [GitHub](https://github.com/JonathanBrouwer/redstone-simulator) and was
 written for Minecraft version 1.19.
 
-{{ image(src="assets/redstone-simulator/cpu.png", alt="CPU in Minecraft", position="left") }}
+{{ image(src="assets/redstone-simulator/cpu.jpeg", alt="CPU in Minecraft", position="left") }}
 
 <br />
 
@@ -248,8 +248,8 @@ The ways in which redstone can connect up and down is shown in image on the righ
 Note that transparent blocks such as glass allow connections upwards *but* not downwards.
 Also note that signals moving upwards are not blocked by transparent blocks.
 
-{{ image(src="assets/redstone-simulator/redstone_wire1.png", position="inline", style="width: 49%;") }}
-{{ image(src="assets/redstone-simulator/redstone_wire2.png", position="inline", style="width: 49%;") }}
+{{ image(src="assets/redstone-simulator/redstone_wire1.jpeg", position="inline", style="width: 49%;") }}
+{{ image(src="assets/redstone-simulator/redstone_wire2.jpeg", position="inline", style="width: 49%;") }}
 
 ## Solid Blocks
 
@@ -265,7 +265,7 @@ From left to right we see a block that receives weak power, a block that receive
 receives weak power.
 Note that in the left case the signal stays on because a repeater is used.
 
-{{ image(src="assets/redstone-simulator/solids.png", position="center", style="width: 80%;") }}
+{{ image(src="assets/redstone-simulator/solids.jpeg", position="center", style="width: 80%;") }}
 
 ## Redstone Blocks
 
@@ -275,7 +275,7 @@ blocks) with a signal strength of 15.
 In the image below, the behaviour of a redstone block is shown. It simply acts as a constant power source to all its
 surrounding blocks.
 
-{{ image(src="assets/redstone-simulator/redstone_block.png", position="center", style="width: 80%;") }}
+{{ image(src="assets/redstone-simulator/redstone_block.jpeg", position="center", style="width: 80%;") }}
 
 ## Repeaters
 
@@ -297,7 +297,7 @@ An example of a locking repeater can be seen in the image below on the right.
 <video width="49%" autoplay muted loop style="border-radius: 8px">
   <source src="/assets/redstone-simulator/repeater_loop.mp4" type="video/mp4">
 </video> 
-{{ image(src="assets/redstone-simulator/repeater_locking.png", position="inline", style="width: 49%;") }}
+{{ image(src="assets/redstone-simulator/repeater_locking.jpeg", position="inline", style="width: 49%;") }}
 
 ## Torches
 
@@ -310,7 +310,7 @@ Additionally, torches, like repeaters, introduce a delay of 1 tick before propag
 It should be noted that torches <emph>burn out</emph> if they are toggled more than 8 times in 30 ticks.
 We have decided *not* to include this behaviour since it is unlikely to be present in most redstone contraptions.
 
-{{ image(src="assets/redstone-simulator/torch.png", position="center", style="width: 80%;") }}
+{{ image(src="assets/redstone-simulator/torch.jpeg", position="center", style="width: 80%;") }}
 
 ## Comparators
 
@@ -336,8 +336,8 @@ We have *not* fully implemented this behaviour.
 Instead, we opted to only check for *furnace* blocks behind comparators and always set the input signal strength as 1.
 An example of how this looks in Minecraft can be seen in the image below on the right.
 
-{{ image(src="assets/redstone-simulator/comp1.png", position="inline", style="width: 49%;") }}
-{{ image(src="assets/redstone-simulator/comp2.png", position="inline", style="width: 49%;") }}
+{{ image(src="assets/redstone-simulator/comp1.jpeg", position="inline", style="width: 49%;") }}
+{{ image(src="assets/redstone-simulator/comp2.jpeg", position="inline", style="width: 49%;") }}
 
 ## Triggers and Probes
 
@@ -352,7 +352,7 @@ be controlled and the input power of a probe can be measured.
 This functionality can be used to write tests (which we will speak more about [later](#testing-lots-of-testing)). An
 example of this can be seen below.
 
-{{ image(src="assets/redstone-simulator/probes_and_triggers.png", position="center", style="width: 100%;") }}
+{{ image(src="assets/redstone-simulator/probes_and_triggers.jpeg", position="center", style="width: 100%;") }}
 
 ## Debouncing
 
@@ -523,7 +523,7 @@ These edges are divided into rear and side edges, which are weighted by the sign
 target block.
 Below we show the same circuit both in minecraft and as a graph.
 
-{{ image(src="assets/redstone-simulator/example_minecraft.png", position="inline", style="width: 49%;") }}
+{{ image(src="assets/redstone-simulator/example_minecraft.jpeg", position="inline", style="width: 49%;") }}
 {{ image(src="assets/redstone-simulator/example_graph.png", position="inline", style="width: 49%;") }}
 
 Notice that:
@@ -683,7 +683,7 @@ As you can see we kind of went crazy, but believe it or not, this actually made 
 For the integration tests, we tested an 8-bit adder and our computer loaded with a Fibonacci program.
 In total, we have written a staggering 127 combined unit and integration tests!
 
-{{ image(src="assets/redstone-simulator/testing.png", position="center", style="width: 100%;") }}
+{{ image(src="assets/redstone-simulator/testing.jpeg", position="center", style="width: 100%;") }}
 
 In order to write tests, we first made schematic files of the circuits to be tested.
 Next, we made assertions on the expected behaviour of this circuit.
