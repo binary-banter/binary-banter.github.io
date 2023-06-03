@@ -1,0 +1,11 @@
+digraph {
+       trigger[pos="0,0",color=#FFE119];
+       probe[pos="100,0",color=#42D4F4];
+
+       trigger -> probe[label="3", color=#000000];
+
+       Trigger[pos="200,0",color=#FFE119];
+       Probe[pos="300,0",color=#42D4F4];
+
+       Trigger -> Probe[label="3", color=#000000];
+}

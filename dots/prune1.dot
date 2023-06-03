@@ -1,0 +1,18 @@
+digraph {
+    trigger[pos="0,0",color=#FFE119];
+    wire[pos="100,0",color=#EEEEEE];
+    repeater[pos="100,-100",color=#469990];
+    probe[pos="200,0",color=#42D4F4];
+
+    trigger -> wire[color=#000000];
+    wire -> probe[color=#000000];
+    wire -> repeater[color=#000000];
+
+
+    Trigger[pos="300,0",color=#FFE119];
+    Wire[pos="400,0",color=#EEEEEE];
+    Probe[pos="500,0",color=#42D4F4];
+
+    Trigger -> Wire[color=#000000];
+    Wire -> Probe[color=#000000];
+}

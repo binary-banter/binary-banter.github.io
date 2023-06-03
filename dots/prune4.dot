@@ -1,0 +1,28 @@
+digraph {
+    trigger[pos="0,0",color=#FFE119];
+    repeater0[pos="100,0",color=#469990];
+    repeater1[pos="200,-50",color=#469990];
+    repeater2[pos="200,0",color=#469990];
+    repeater3[pos="200,50",color=#469990];
+    probe1[pos="300,0",color=#42D4F4];
+    probe2[pos="300,50",color=#42D4F4];
+
+    trigger -> repeater0;
+    repeater0 -> repeater1;
+    repeater0 -> repeater2;
+    repeater0 -> repeater3;
+    repeater1 -> probe1;
+    repeater2 -> probe1;
+    repeater3 -> probe2;
+
+    Trigger[pos="400,0",color=#FFE119];
+    Repeater0[pos="500,0",color=#469990];
+    Repeater2[pos="600,0",color=#469990];
+    Probe1[pos="700,0",color=#42D4F4];
+    Probe2[pos="700,50",color=#42D4F4];
+
+    Trigger -> Repeater0;
+    Repeater0 -> Repeater2;
+    Repeater2 -> Probe1;
+    Repeater2 -> Probe2;
+}

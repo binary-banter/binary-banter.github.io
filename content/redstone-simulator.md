@@ -9,42 +9,50 @@ tags = ["rust", "minecraft", "redstone"]
 [//]: # (TODO:)
 
 [//]: # (- clarify the goal in "Parsing the World from a Schematic")
-
+[//]: # (- Why rust?)
 [//]: # (- performance ✨)
+[//]: # (- fix tags)
 
 # Table of Contents
 
 <!-- TOC -->
-
 * [Table of Contents](#table-of-contents)
 * [Why We Do What We Do](#why-we-do-what-we-do)
 * [A Redstone Simulator](#a-redstone-simulator)
 * [How Does Redstone Work Anyway?](#how-does-redstone-work-anyway)
-    * [Redstone Timing and Updates](#redstone-timing-and-updates)
-    * [Weak and Strong Power](#weak-and-strong-power)
-    * [Redstone Wire](#redstone-wire)
-    * [Solid Blocks](#solid-blocks)
-    * [Redstone Blocks](#redstone-blocks)
-    * [Repeaters](#repeaters)
-    * [Torches](#torches)
-    * [Comparators](#comparators)
-    * [Triggers and Probes](#triggers-and-probes)
-    * [Debouncing](#debouncing)
+  * [Redstone Timing and Updates](#redstone-timing-and-updates)
+  * [Weak and Strong Power](#weak-and-strong-power)
+  * [Redstone Wire](#redstone-wire)
+  * [Solid Blocks](#solid-blocks)
+  * [Redstone Blocks](#redstone-blocks)
+  * [Repeaters](#repeaters)
+  * [Torches](#torches)
+  * [Comparators](#comparators)
+  * [Triggers and Probes](#triggers-and-probes)
+  * [Debouncing](#debouncing)
 * [Parsing the World from a Schematic](#parsing-the-world-from-a-schematic)
 * [Simulating the World](#simulating-the-world)
-    * [Array-Based Simulation](#array-based-simulation)
-        * [Intra-Tick Updates](#intra-tick-updates)
-        * [Late-Updates](#late-updates)
-    * [Simulating the World as a Graph](#simulating-the-world-as-a-graph)
-    * [Creating a Graph](#creating-a-graph)
-    * [Pruning the Graph](#pruning-the-graph)
+  * [Array-Based Simulation](#array-based-simulation)
+    * [Intra-Tick Updates](#intra-tick-updates)
+    * [Late-Updates](#late-updates)
+  * [Graph-Based Simulation](#graph-based-simulation)
+  * [Creating a Graph](#creating-a-graph)
+  * [Pruning the Graph](#pruning-the-graph)
+    * [1. Prune Dead Nodes](#1-prune-dead-nodes)
+    * [2. Prune Redstone](#2-prune-redstone)
+    * [3. Prune Duplicate Edges](#3-prune-duplicate-edges)
+    * [4. Prune Groups](#4-prune-groups)
+    * [5. Prune Untraversable Edges](#5-prune-untraversable-edges)
+    * [6. Prune Irrelevant Nodes](#6-prune-irrelevant-nodes)
+    * [7. Prune Subtractor Edges](#7-prune-subtractor-edges)
+    * [8. Prune Constants](#8-prune-constants)
+    * [9. Replace Simple Repeaters](#9-replace-simple-repeaters)
 * [Testing, Lots of Testing](#testing-lots-of-testing)
 * [Visualizations](#visualizations)
 * [The "Minecraft is Cursed" Section](#the-minecraft-is-cursed-section)
-    * [Order Matters for Tick Updates](#order-matters-for-tick-updates)
-    * [Comparators are Tile Entities](#comparators-are-tile-entities)
+  * [Order Matters for Tick Updates](#order-matters-for-tick-updates)
+  * [Comparators are Tile Entities](#comparators-are-tile-entities)
 * [Coding Experience](#coding-experience)
-
 <!-- TOC -->
 
 <br />
@@ -430,7 +438,7 @@ which means that if the leading bit of a byte is 1, the next byte is also a part
 examples:
 
 * \[0b0xxx_xxxx\] -> 0b0xxx_xxxx.
-* \[0b1yyy_yyyy, 0b0xxx_xxxx\] -> 0b00yy_yyyy_yxxx_xxxx.
+* \[0b1yyy_yyyy, 0b0xxx_xxxx\] -> 0b00xx_xxxx_xyyy_yyyy.
 
 To read the next identifier, we used the following code:
 
@@ -493,7 +501,7 @@ In the late-updates phase, we go through the list of blocks that was marked for 
 We check if the blocks output should change, and if it should we add its neighbours to the intra-tick updates queue of
 the next tick.
 
-## Simulating the World as a Graph
+## Graph-Based Simulation
 
 The array-based representation of the world is the one that is closest to reality, and it would allow simulating blocks
 such as pistons more easily.
@@ -557,19 +565,107 @@ By removing such nodes and the edges connected to them, we can drastically reduc
 
 We actually managed to come up with 9 different pruning methods, which when combined, managed to reduce the number of
 nodes and edges by a factor of 75!
-The methods we found were the following:
+In the subsections below we discuss the following methods:
 
-1. Prune dead nodes.
-2. Prune redstone.
-3. Prune duplicate edges.
-4. Prune groups.
-5. Prune untraversable edges.
-6. Prune irrelevant nodes.
-7. Prune subtractor edges.
-8. Prune constants.
-9. Replace simple repeaters*.
+1. [Prune dead nodes](#1-prune-dead-nodes).
+2. [Prune redstone](#2-prune-redstone).
+3. [Prune duplicate edges](#3-prune-duplicate-edges).
+4. [Prune groups](#4-prune-groups).
+5. [Prune untraversable edges](#5-prune-untraversable-edges).
+6. [Prune irrelevant nodes](#6-prune-irrelevant-nodes).
+7. [Prune subtractor edges](#7-prune-subtractor-edges).
+8. [Prune constants](#8-prune-constants).
+9. [Replace simple repeaters](#9-replace-simple-repeaters).
 
-\* technically not a prune since we do not remove any edges or nodes.
+### 1. Prune Dead Nodes
+
+The simplest pruning method we came up with was to remove <emph>dead nodes</emph> such as in the example given above.
+To qualify as a dead node, a node must not be a trigger or probe, and it must have no incoming or outgoing edges, or both.*
+
+Note that the removal of dead nodes can lead to the creation of new dead nodes.
+In fancy terms this operation is not *idempotent*.
+To make this pruning method idempotent, we can iteratively remove dead nodes until no more dead nodes remain in the graph.
+
+\* An exception is that we cannot remove redstone blocks or redstone torches with no incoming edges since they still provide a constant output signal.
+We consider this special case when we [prune constants](#8-prune-constants).
+
+{{ image(src="assets/redstone-simulator/prune1.png", alt="A graph showing an example of prune 1", position="center", style="background: white; width: 100%;") }}
+
+### 2. Prune Redstone
+
+The next pruning method attempts to remove all the redstone wires from the computer.
+
+Wait <emph>WHAT</emph>?
+
+Yes, you read that right! 
+The graph structure actually allows us to completely abstract all wires away by using edge weights.
+In fact, it even allows us to do the same for solid blocks!
+
+The core idea is to make the weights of the edges represent the type of connection (side or rear) that exists between blocks and a number representing the signal strength loss between them.
+
+The following two points justify why we are allowed to do this:
+* Redstone wires and solid blocks only have intra-tick updates, making their behaviour seem *instant*. So, we only need edges between blocks with delays.
+* Blocks that are connected through redstone wires and solid blocks will always take the same *shortest* path. So, we can collapse everything to this path.
+
+{{ image(src="assets/redstone-simulator/prune2.png", alt="A graph showing an example of prune 2", position="center", style="background: white; width: 100%;") }}
+
+
+### 3. Prune Duplicate Edges
+
+Another method involves removing <emph>duplicate edges</emph> between blocks.
+Nodes that have multiple edges of the same type only need to keep the edge with the lowest weight.
+This is allowed because edges with higher weights will always be overshadowed by edges with lower weights.
+In simple terms, redstone power always follows the *path of least resistance*.
+
+{{ image(src="assets/redstone-simulator/prune3.png", alt="A graph showing an example of prune 3.", position="center", style="background: white; width: 100%;") }}
+
+
+### 4. Prune Groups
+
+This method attempts to condense groups of nodes into a single node.
+We consider a set of torches or repeaters a <emph>group</emph> when they are all driven by a torch or repeater.
+
+Such a group can then be replaced by a single torch or repeater.
+The single node will have an incoming edge connected to the driving torch or repeater and all outgoing edges from the blocks in the group.
+
+This substitution is allowed because the entire group is always driven to be *on* or *off*.
+For this reason, the condensed node maintains the same behaviour when compared to the original connections.
+
+{{ image(src="assets/redstone-simulator/prune4.png", alt="A graph showing an example of prune 4", position="center", style="background: white; width: 100%;") }}
+
+### 5. Prune Untraversable Edges
+
+A very simple and effective prune is to remove all edges with weights of at least 15.
+Since redstone has a maximum signal strength of 15, these edges will never provide an *on* signal.
+These <emph>untraversable edges</emph> can therefore be safely removed.
+
+
+
+### 6. Prune Irrelevant Nodes
+
+Remember that we placed probes in our redstone circuit to measure its behaviour. 
+Some parts of the circuit may not have any effect on these probes. These parts can be safely removed.
+
+{{ image(src="assets/redstone-simulator/prune6.png", alt="A graph showing an example of prune 6", position="center", style="background: white; width: 100%;") }}
+
+### 7. Prune Subtractor Edges
+
+If a block 
+- is connected to both the rear and side of a comparator
+- that comparator is in subtract mode
+- the rear edge has a higher signal strength loss than the side edge
+Then
+- the rear edge can be removed
+- if the rear and side are both on, `rear - side` will always be 0.
+- the side cannot be removed because another rear edge might provide a stronger signal
+
+### 8. Prune Constants
+
+An edge case that we missed during dead node pruning is that some nodes may provide a constant 
+
+### 9. Replace Simple Repeaters
+
+technically not a prune since we do not remove any edges or nodes
 
 <br />
 
