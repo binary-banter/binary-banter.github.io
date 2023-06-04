@@ -733,8 +733,8 @@ test!("<file>", <name>, <triggers>; F, F, T, F);
 
 # Visualizations
 
-{{ image(src="assets/redstone-simulator/cpu_graph.png", alt="Graph of redstone computer visualized with Gephi.",
-position="center", style="width: 100%;") }}
+{{ image(src="assets/redstone-simulator/cpu_graph.svg", alt="Graph of redstone computer visualized with Gephi.",
+position="center", style="width: 100%; margin: 10px;") }}
 
 {{ image(src="assets/redstone-simulator/cpu_trace.png", alt="Trace of simulated redstone computer in GTKWave.",
 position="center", style="width: 100%;") }}
