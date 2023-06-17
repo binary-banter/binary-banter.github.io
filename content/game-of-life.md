@@ -268,3 +268,103 @@ Since CUDA is only available for NVidia GPUs, we decided to first focus on porti
 ## OpenCL
 
 - TODO met gpu
+
+# Comparing Results with Previous Work
+
+So how fast did we actually make it go? And was it significant?
+Thanks to our awesome university, we were allowed to use the high performance cluster (HPC) to experiment with several GPUs.
+We measure our performance in cell updates per second (CUpS). 
+
+<table>
+    <thead>
+        <tr>
+            <th>Implementation</th>
+            <th>Hardware</th>
+            <th>Performance (CUpS)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td rowspan=2>Trivial</td>
+            <td>i7 6700K</td>
+            <td>...</td>
+        </tr>
+        <tr>
+            <td>i7 5820K</td>
+            <td>...</td>
+        </tr>
+        <tr>
+            <td rowspan=2>Packed Nibbles</td>
+            <td>i7 6700K</td>
+            <td>...</td>
+        </tr>
+        <tr>
+            <td>i7 5820K</td>
+            <td>...</td>
+        </tr>
+        <tr>
+            <td rowspan=2>Packed Bits</td>
+            <td>i7 6700K</td>
+            <td>...</td>
+        </tr>
+        <tr>
+            <td>i7 5820K</td>
+            <td>...</td>
+        </tr>
+        <tr>
+            <td rowspan=2>SIMD</td>
+            <td>i7 6700K</td>
+            <td>...</td>
+        </tr>
+        <tr>
+            <td>i7 5820K</td>
+            <td>...</td>
+        </tr>
+        <tr style="height: 40px"></tr>
+        <tr>
+            <td rowspan=5>OpenCL</td>
+            <td>1080Ti</td>
+            <td>4.775×10^12</td>
+        </tr>
+        <tr>
+            <td>2080Ti</td>
+            <td>6.783×10^12</td>
+        </tr>
+        <tr>
+            <td>V100</td>
+            <td>...</td>
+        </tr>
+        <tr>
+            <td>A40</td>
+            <td>8.055×10^12</td>
+        </tr>
+        <tr>
+            <td>7900XTX</td>
+            <td>8.939×10^12</td>
+        </tr>
+        <tr>
+            <td rowspan=4>CUDA</td>
+            <td>1080Ti</td>
+            <td>5.205×10^12</td>
+        </tr>
+       <tr>
+            <td>2080Ti</td>
+            <td>7.796×10^12</td>
+        </tr>
+       <tr>
+            <td>V100</td>
+            <td>re-run</td>
+        </tr>
+       <tr>
+            <td>A40</td>
+            <td>8.839×10^12</td>
+        </tr>
+    </tbody>
+</table>
+
+From previous work using Parallel Bulk Computation:
+
+| Implementation | Hardware  | Performance (CUpS) |
+|:--------------:|:---------:|:------------------:|
+|      CPU       |   "i7"    |     13.4×10^9      |
+|     GPGPU      |  Titan X  |    1.350×10^12     |
