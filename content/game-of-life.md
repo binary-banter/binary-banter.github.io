@@ -286,39 +286,39 @@ We measure our performance in cell updates per second (CUpS).
     <tbody>
         <tr>
             <td rowspan=2>Trivial</td>
-            <td>i7 6700K</td>
-            <td>...</td>
+            <td>i7 5820K</td>
+            <td>0.219×10^9</td>
         </tr>
         <tr>
-            <td>i7 5820K</td>
-            <td>...</td>
+            <td>i7 6700K</td>
+            <td>0.282×10^9</td>
         </tr>
         <tr>
             <td rowspan=2>Packed Nibbles</td>
-            <td>i7 6700K</td>
-            <td>...</td>
+            <td>i7 5820K</td>
+            <td>4.393×10^9</td>
         </tr>
         <tr>
-            <td>i7 5820K</td>
-            <td>...</td>
+            <td>i7 6700K</td>
+            <td>5.065×10^9</td>
         </tr>
         <tr>
             <td rowspan=2>Packed Bits</td>
-            <td>i7 6700K</td>
-            <td>...</td>
+            <td>i7 5820K</td>
+            <td>6.539×10^9</td>
         </tr>
         <tr>
-            <td>i7 5820K</td>
-            <td>...</td>
+            <td>i7 6700K</td>
+            <td>7.033×10^9</td>
         </tr>
         <tr>
             <td rowspan=2>SIMD</td>
-            <td>i7 6700K</td>
-            <td>...</td>
+            <td>i7 5820K</td>
+            <td>14.402×10^9</td>
         </tr>
         <tr>
-            <td>i7 5820K</td>
-            <td>...</td>
+            <td>i7 6700K</td>
+            <td>13.436×10^9</td>
         </tr>
         <tr style="height: 40px"></tr>
         <tr>
@@ -353,7 +353,7 @@ We measure our performance in cell updates per second (CUpS).
         </tr>
        <tr>
             <td>V100</td>
-            <td>re-run</td>
+            <td>...</td>
         </tr>
        <tr>
             <td>A40</td>
