@@ -6,6 +6,13 @@ date = 2023-05-25
 tags = ["rust", "minecraft", "redstone"]
 +++
 
+We ventured into Minecraft by building an 8-bit CPU using redstone blocks instead of playing the traditional survival mode. 
+To address the challenges of identifying delays in our complex contraption, we developed the Redstone Simulator, 
+an external program that simulates our CPU, allowing us to analyze signal behavior and potential bottlenecks more effectively. 
+This blog explores the development and functionality of our Redstone Simulator.
+
+<!-- more -->
+
 [//]: # (TODO:)
 
 [//]: # (- clarify the goal in "Parsing the World from a Schematic")

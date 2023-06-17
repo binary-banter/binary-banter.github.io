@@ -1,10 +1,15 @@
 +++
-title = "Game of Life: How a nerdsnipe led to a faster implementation of game of life"
+title = "Game of Life: How a nerdsnipe led to a fast implementation of game of life"
 date = 2023-06-17
 
 [taxonomies]
-tags = ["rust", "game-of-life"]
+tags = ["rust", "game-of-life", "gpgpu", "simd"]
 +++
+
+Inspired by an Advent of Code problem, we spontaneously decided to explore Conway's Game of Life and discussed various techniques to solve it efficiently. 
+This blogpost provides a concise summary of our weeks-long journey, where we delved into finding faster solutions for the Game of Life.
+
+<!-- more -->
 
 # A Nerdsnipe
 
@@ -16,6 +21,8 @@ Obviously we had to discuss how we would solve this problem in the fastest manne
 One thing let to another, and needless to say, this discussion went on to consume weeks of our lives as we tried to find faster and faster solutions.
 
 This blogpost is a short summary of all the techniques we've tried to speed up Game of Life.
+
+The source code for this project is available on [GitHub](https://github.com/binary-banter/fast-game-of-life/).
 
 # Trivial simulation
 
@@ -124,7 +131,7 @@ result &= !(count >> 3)
 result &= 0x1111_1111_1111_1111
 ```
 
-## Improving our packed representation
+## Back to a Packed Representation Using Bits
 
 So far we have stored a cell in each nibble, but we can actually implement a parallel simulator that stores a cell in each bit. 
 This makes the logic a lot more complex to understand for us mortals, but it does work a lot faster.
@@ -214,8 +221,50 @@ So we can now use this to simulate a fully packed `u64` of cells in parallel.
 
 # Embracing the Spectacle of Parallelism Using SIMD
 
-- TODO met simd
+The story doesn't end there however!
+We have merely used parallelism on the scale of `u64`s, but most modern CPUs actually provide specialized instructions that work on registers of multiple `u64`s.
+These instructions are commonly referred to as Single-Instruction Multiple-Data, or <emph>SIMD</emph> for short.
+
+We use Rust's [new nightly std::simd API](https://doc.rust-lang.org/std/simd/index.html) to achieve this. 
+The API provides easy to use const-generic methods that abstract away the underlying intrinsics.
+
+For the most part the translation from `u64`s as columns to `N` `u64`s as columns, where `N` is the number of SIMD lanes, was quite straight forward.
+The only real hurdle we came across is the lack of register-wide bit-shifts.
+Instead of shifting the entire register, the lanes themselves are shifted.
+
+To remedy this problem we implemented helper functions. Below is our shift_left function.
+```rs
+pub fn shl_1<const N: usize>(v: Simd<u64, N>) -> Simd<u64, N>
+where
+    LaneCount<N>: SupportedLaneCount,
+{
+    let approx = (v << Simd::splat(1));
+
+    let mut mask = [0x00000_0000_0000_0001; N];
+    mask[N - 1] = 0;
+
+    let neighbouring_bits = (v >> Simd::splat(63)).rotate_lanes_left::<1>() & Simd::from_array(mask);
+    approx | neighbouring_bits
+}
+```
+The function works as follows:
+* First we approximate the shift, by shifting each lane left by 1. This works for all bits except the bits that should be shifted across lane boundaries.
+* To get the remaining bits, we rotate the lanes right by one, then shift each lane left by 63. 
+* We mask the result of this so only the relevant bits are selected. Specifically, the lane that was rotated around the register should be ignored.
+* Finally, we `OR` these results together.
+
+With the hardware available to us, we can now simulate 256 cells in parallel! 
 
 # Ascending to the Apex of Parallelism Using the GPU
+
+We have now seen how we can efficiently pack cells into different datastructures and quickly calculate the next state for each cell.
+What we have not done however is to <emph>multi-thread</emph> our solution.
+Modern CPUs have many cores that can perform work at the same time and GPUs actually have *thousands* of cores that can perform simple tasks at the same time.
+Since our solution is simple enough we figured we would skip multi-threading on the CPU and jump straight into General Purpose GPU (<emph>GPGPU</emph>) programming.
+
+There are two major frameworks for doing GPGPU: OpenCL and CUDA.
+Since CUDA is only available for NVidia GPUs, we decided to first focus on porting our solution to OpenCL.
+
+## OpenCL
 
 - TODO met gpu
