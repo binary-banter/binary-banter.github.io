@@ -298,17 +298,13 @@ We measure our performance in cell updates per second (CUpS).
             <td>0.378x10^9</td>
         </tr>
         <tr>
-            <td rowspan=3>Packed Nibbles</td>
+            <td rowspan=2>Packed Nibbles</td>
             <td>i7 5820K</td>
             <td>4.393×10^9</td>
         </tr>
         <tr>
             <td>i7 6700K</td>
             <td>5.065×10^9</td>
-        </tr>
-        <tr>
-            <td>i9 11900K</td>
-            <td>48.266x10^9</td>
         </tr>
         <tr>
             <td rowspan=2>Packed Bits</td>
@@ -320,13 +316,17 @@ We measure our performance in cell updates per second (CUpS).
             <td>7.033×10^9</td>
         </tr>
         <tr>
-            <td rowspan=2>SIMD</td>
+            <td rowspan=3>SIMD</td>
             <td>i7 5820K</td>
             <td>14.402×10^9</td>
         </tr>
         <tr>
             <td>i7 6700K</td>
             <td>13.436×10^9</td>
+        </tr>
+        <tr>
+            <td>i9 11900K</td>
+            <td>48.266x10^9</td>
         </tr>
         <tr style="height: 40px"></tr>
         <tr>
