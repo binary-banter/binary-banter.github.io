@@ -318,11 +318,11 @@ We measure our performance in cell updates per second (CUpS).
         <tr>
             <td rowspan=3>SIMD</td>
             <td>i7 5820K</td>
-            <td>14.402×10^9</td>
+            <td>22.600x10^9</td>
         </tr>
         <tr>
             <td>i7 6700K</td>
-            <td>13.436×10^9</td>
+            <td>27.875x10^9</td>
         </tr>
         <tr>
             <td>i9 11900K</td>
