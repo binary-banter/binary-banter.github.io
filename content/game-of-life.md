@@ -339,7 +339,7 @@ We measure our performance in cell updates per second (CUpS).
         </tr>
         <tr>
             <td>i9 11900K</td>
-            <td>...</td>
+            <td>296.019x10^9</td>
         </tr>
         <tr style="height: 40px"></tr>
         <tr>
@@ -366,19 +366,19 @@ We measure our performance in cell updates per second (CUpS).
         <tr>
             <td rowspan=4>CUDA</td>
             <td>1080Ti</td>
-            <td>5.205×10^12</td>
+            <td>5.309×10^12</td>
         </tr>
        <tr>
             <td>V100</td>
-            <td>7.472×10^12</td>
+            <td>8.899×10^12</td>
         </tr>
        <tr>
             <td>2080Ti</td>
-            <td>7.796×10^12</td>
+            <td>9.007×10^12</td>
         </tr>
        <tr>
             <td>A40</td>
-            <td>8.839×10^12</td>
+            <td>8.839×10^12 TODODODODODO</td>
         </tr>
     </tbody>
 </table>
