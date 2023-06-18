@@ -328,6 +328,19 @@ We measure our performance in cell updates per second (CUpS).
             <td>i9 11900K</td>
             <td>48.266x10^9</td>
         </tr>
+        <tr>
+            <td rowspan=3>SIMD Multi-threaded</td>
+            <td>i7 5820K</td>
+            <td>45.813x10^9</td>
+        </tr>
+        <tr>
+            <td>i7 6700K</td>
+            <td>71.105x10^9</td>
+        </tr>
+        <tr>
+            <td>i9 11900K</td>
+            <td>...</td>
+        </tr>
         <tr style="height: 40px"></tr>
         <tr>
             <td rowspan=5>OpenCL</td>
@@ -335,12 +348,12 @@ We measure our performance in cell updates per second (CUpS).
             <td>4.775×10^12</td>
         </tr>
         <tr>
-            <td>2080Ti</td>
-            <td>6.783×10^12</td>
+            <td>V100</td>
+            <td>6.678×10^12</td>
         </tr>
         <tr>
-            <td>V100</td>
-            <td>...</td>
+            <td>2080Ti</td>
+            <td>6.783×10^12</td>
         </tr>
         <tr>
             <td>A40</td>
@@ -356,12 +369,12 @@ We measure our performance in cell updates per second (CUpS).
             <td>5.205×10^12</td>
         </tr>
        <tr>
-            <td>2080Ti</td>
-            <td>7.796×10^12</td>
+            <td>V100</td>
+            <td>7.472×10^12</td>
         </tr>
        <tr>
-            <td>V100</td>
-            <td>...</td>
+            <td>2080Ti</td>
+            <td>7.796×10^12</td>
         </tr>
        <tr>
             <td>A40</td>
