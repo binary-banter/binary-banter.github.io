@@ -343,7 +343,11 @@ We measure our performance in cell updates per second (CUpS).
         </tr>
         <tr style="height: 40px"></tr>
         <tr>
-            <td rowspan=5>OpenCL</td>
+            <td rowspan=6>OpenCL</td>
+            <td>1050 Notebook</td>
+            <td>0.760×10^12</td>
+        </tr>
+        <tr>
             <td>1080Ti</td>
             <td>4.775×10^12</td>
         </tr>
@@ -364,7 +368,11 @@ We measure our performance in cell updates per second (CUpS).
             <td>8.939×10^12</td>
         </tr>
         <tr>
-            <td rowspan=4>CUDA</td>
+            <td rowspan=5>CUDA</td>
+            <td>1050 Notebook</td>
+            <td>1.068×10^12</td>
+        </tr>
+        <tr>
             <td>1080Ti</td>
             <td>5.309×10^12</td>
         </tr>
