@@ -386,7 +386,7 @@ We measure our performance in cell updates per second (CUpS).
         </tr>
        <tr>
             <td>A40</td>
-            <td>10.465x10^12 TODODODODODO</td>
+            <td>11.720x10^12</td>
         </tr>
     </tbody>
 </table>
