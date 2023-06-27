@@ -374,19 +374,19 @@ We measure our performance in cell updates per second (CUpS).
         </tr>
         <tr>
             <td>1080Ti</td>
-            <td>5.309×10^12</td>
+            <td>5.389×10^12</td>
         </tr>
        <tr>
             <td>V100</td>
-            <td>8.899×10^12</td>
+            <td>9.871×10^12</td>
         </tr>
        <tr>
             <td>2080Ti</td>
-            <td>9.007×10^12</td>
+            <td>9.666×10^12</td>
         </tr>
        <tr>
             <td>A40</td>
-            <td>8.839×10^12 TODODODODODO</td>
+            <td>10.465x10^12 TODODODODODO</td>
         </tr>
     </tbody>
 </table>
