@@ -91,14 +91,14 @@ The neighbours on the sides are more tricky, shifting the columns left and right
 The following two tables show the cells 0 through 7 that we want to align with the center node `c`, so we can add them.
 The second table highlights the case where some of the cells might be in the column to the left or right.
 
-| left                | middle              | right               |
-|---------------------|---------------------|---------------------|
+|        left         |       middle        |        right        |
+|:-------------------:|:-------------------:|:-------------------:|
 | xxxx xxxx xxxx xxxx | xxxx x012 xxxx xxxx | xxxx xxxx xxxx xxxx |
 | xxxx xxxx xxxx xxxx | xxxx x3c4 xxxx xxxx | xxxx xxxx xxxx xxxx |
 | xxxx xxxx xxxx xxxx | xxxx x567 xxxx xxxx | xxxx xxxx xxxx xxxx |
 
-| left                | middle              | right               |
-|---------------------|---------------------|---------------------|
+|        left         |       middle        |        right        |
+|:-------------------:|:-------------------:|:-------------------:|
 | xxxx xxxx xxxx xxx0 | 12xx xxxx xxxx xxxx | xxxx xxxx xxxx xxxx |
 | xxxx xxxx xxxx xxx3 | c4xx xxxx xxxx xxxx | xxxx xxxx xxxx xxxx |
 | xxxx xxxx xxxx xxx5 | 67xx xxxx xxxx xxxx | xxxx xxxx xxxx xxxx |
@@ -404,7 +404,7 @@ It is an instruction that takes 3 inputs `a`, `b` and `c`, an output `d` and a l
 The following table shows how the `LUT = 0b1001_0110` encodes the ternary bitwise XOR operator for inputs `a`, `b` and `c`.
 
 | a | b | c | d |
-|---|---|---|---|
+|:-:|:-:|:-:|:-:|
 | 0 | 0 | 0 | 0 |
 | 0 | 0 | 1 | 1 |
 | 0 | 1 | 0 | 1 |
