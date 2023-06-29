@@ -292,7 +292,7 @@ Now we are fully using our CPU! But this is not the end of our journey...
 
 We have now seen how we can efficiently pack cells into different datastructures and quickly calculate the next state for each cell.
 At the end of the last chapter we made our solution multi-threaded. Modern CPUs have many cores that can perform work at the same time, but GPUs actually have *thousands* of cores that can perform simple tasks at the same time.
-GPUs however have a fastly different model of computation and memory, so running our solution on the GPU is not trivial.
+GPUs however have a vastly different model of computation and memory, so running our solution on the GPU is not trivial.
 Yet we were still determined to take a look into General Purpose GPU (<emph>GPGPU</emph>).
 
 There are two major frameworks for doing GPGPU: OpenCL and CUDA.
