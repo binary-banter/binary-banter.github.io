@@ -274,7 +274,7 @@ where
 ```
 The function works as follows:
 * First we approximate the shift, by shifting each lane left by 1. This works for all bits except the bits that should be shifted across lane boundaries.
-* To get the remaining bits, we rotate the lanes right by one, then shift each lane left by 63. 
+* To get the remaining bits, we rotate the lanes left by one, then shift each lane right by 63. 
 * We mask the result of this so only the relevant bits are selected. Specifically, the lane that was rotated around the register should be ignored.
 * Finally, we `OR` these results together.
 
