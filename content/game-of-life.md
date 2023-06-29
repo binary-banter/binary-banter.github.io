@@ -2,6 +2,9 @@
 title = "Game of Life: How a nerdsnipe led to a fast implementation of game of life"
 date = 2023-06-29
 
+[extra]
+image = "/assets/game-of-life/thumbnail.png"
+
 [taxonomies]
 tags = ["rust", "game-of-life", "gpgpu", "simd"]
 +++

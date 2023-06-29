@@ -4,6 +4,10 @@
 {{ title_macros::title(page_title=page.title, main_title=config.title) }}
 {%- endblock -%}
 
+{%- block extra_head -%}
+<meta property="og:image" content="{{ page.extra.image }}"/>
+{%- endblock -%}
+
 {% block content %}
     <div class="post">
         {{ post_macros::header(page=page) }}
