@@ -1,6 +1,7 @@
 +++
 title = "Building a Redstone Simulator in Rust"
 date = 2023-05-25
+draft = true
 
 [taxonomies]
 tags = ["rust", "minecraft", "redstone"]
