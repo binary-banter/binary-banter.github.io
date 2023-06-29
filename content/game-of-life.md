@@ -73,7 +73,7 @@ but we also need many memory accesses on top of that for just a single cell.
 
 ## A Packed Representation Using Bits
 Our first idea to improve upon this solution was to use a <emph>packed representation</emph>, where each bit represents a cell.
-It would then be possible to retrieve these cells by using a mask and shifts, making this solution slower than our original solution.
+It would then be possible to retrieve cells by using a mask and shifts, making this solution slower than our original solution.
 
 ## A Packed Representation Using Nibbles
 We can achieve a packed representation that is faster than our original by harnessing the power of parallelism.
@@ -173,7 +173,7 @@ The addition of the 8 neighbouring cells can be written as:
 ---- +
 qrst
 ```
-Where `t` is the least-significant bit (LSB) of the `count`, 's' the LSB of 'count >> 1', etc.
+Where `t` is the least-significant bit of `count`, `s` the least-significant bit of `count >> 1`, etc.
 We need to find a way to produce `q`, `r`, `s`, and `t` using bit-level instructions (AND, OR, NOT, XOR) instead of using the ADD instruction, so that we can simulate all 64 cells in parallel.
 
 Luckily we recently took a course on Computer Arithmetic, which taught us exactly how to do this! 
@@ -267,7 +267,8 @@ where
     let mut mask = [0x00000_0000_0000_0001; N];
     mask[N - 1] = 0;
 
-    let neighbouring_bits = (v >> Simd::splat(63)).rotate_lanes_left::<1>() & Simd::from_array(mask);
+    let rotate = (v >> Simd::splat(63)).rotate_lanes_left::<1>();
+    let neighbouring_bits = rotate & Simd::from_array(mask);
     approx | neighbouring_bits
 }
 ```
@@ -292,7 +293,7 @@ Now we are fully using our CPU! But this is not the end of our journey...
 We have now seen how we can efficiently pack cells into different datastructures and quickly calculate the next state for each cell.
 At the end of the last chapter we made our solution multi-threaded. Modern CPUs have many cores that can perform work at the same time, but GPUs actually have *thousands* of cores that can perform simple tasks at the same time.
 GPUs however have a fastly different model of computation and memory, so running our solution on the GPU is not trivial.
-Yet still we were determined to take a look into General Purpose GPU (<emph>GPGPU</emph>) programming.
+Yet we were still determined to take a look into General Purpose GPU (<emph>GPGPU</emph>).
 
 There are two major frameworks for doing GPGPU: OpenCL and CUDA.
 Since CUDA is only available for NVidia GPUs, we decided to first focus on porting our solution to OpenCL.
@@ -320,7 +321,7 @@ By repeatedly launching this kernel with the global work size equal to the dimen
 
 This basic implementation was already quite fast, but this was definitely not the fastest it could go.
 We started experimenting using different techniques and benchmarked them using [criterion](https://crates.io/crates/criterion) in order to determine what works and doesn't work.
-Benchmarking is important because the performance effect that a change to the code may have is sometimes very unpredictable, *especially* when working with GPUs.
+Benchmarking is important because the performance effects of changes to the code may be very unpredictable, *especially* when working with GPUs.
 
 In the following subsections we will discuss the techniques that worked:
 * Multi-step simulation
@@ -352,8 +353,8 @@ However, if the number of steps is too low then we might not reap the benefits o
 The first setup we tried is loading 3 columns, with the goal of simulating only the middle one for 32 steps. This also requires a vertical padding of 32 cells.
 We can calculate what our percentage of <emph>effective computation</emph> is. This is the percentage of cells that we simulate that actually end up being written back to global memory.
 Horizontally, a third of the cells are written to memory, the two padding columns on the side are only used because we need to know the value of them to simulate the 32 steps.
-Vertically, assuming a workgroup size of 512, `2 * 32 / 512 = 8.75%` of the computation is wasted. 
-Combining these figures, `(512 - 2 * 32) / 512 * (1/3) = 29.2%` of the cells we simulate are written back to global memory. 
+Vertically, assuming a workgroup size of 512, <code class="formula">2 * 32 / 512 = 8.75%</code> of the computation is wasted. 
+Combining these figures, <code class="formula">(512 - 2 * 32) / 512 * (1/3) = 29.2%</code> of the cells we simulate are written back to global memory. 
 That percentage is not that high, and we can do better.
 
 The setup that we settled on is loading 3 columns, but simulating the middle one for only 16 steps. 
@@ -494,9 +495,9 @@ right[WORK_PER_THREAD + 1] = __shfl_down_sync(-1, right[1], 1);
 So how fast did we actually make it go? And was it significant?
 Thanks to our awesome university, we were allowed to use the high performance cluster (HPC) to experiment with several GPUs.
 Additionally, for completeness, we also included some CPU benchmarks.
-We measure our performance in cell updates per second (CUpS). 
+We measure performance in cell updates per second (CUpS). 
 
-<table>
+<table style="text-align: center;">
     <thead>
         <tr>
             <th>Implementation</th>
@@ -649,6 +650,6 @@ Both of these techniques could be added to our implementation, but we did not fi
 
 # Thanks
 
-This post was written by Julia Dijkstra and Jonathan Brouwer.
+This post was written by <emph>Julia Dijkstra</emph> and <emph>Jonathan Brouwer</emph>.
 
-Special thanks to Mathijs Molenaar for providing some ideas for further optimizations.
+Special thanks to <emph>Mathijs Molenaar</emph> for providing some ideas for further optimizations.

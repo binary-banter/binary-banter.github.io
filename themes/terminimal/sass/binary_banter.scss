@@ -2,6 +2,11 @@
 emph {
   color: var(--accent);
   font-weight: bold;
+  white-space: nowrap;
+}
+
+code.formula {
+  white-space: nowrap;
 }
 
 // Give headers some space.
