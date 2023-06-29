@@ -1,6 +1,6 @@
 +++
 title = "Game of Life: How a nerdsnipe led to a fast implementation of game of life"
-date = 2023-06-17
+date = 2023-06-29
 
 [taxonomies]
 tags = ["rust", "game-of-life", "gpgpu", "simd"]
@@ -24,8 +24,15 @@ This blogpost provides a concise summary of our weeks-long journey, where we del
 * [Embracing the Spectacle of Parallelism Using SIMD and Multi-Threading](#embracing-the-spectacle-of-parallelism-using-simd-and-multi-threading)
 * [Ascending to the Apex of Parallelism Using the GPU](#ascending-to-the-apex-of-parallelism-using-the-gpu)
   * [OpenCL](#opencl)
+    * [Multi-Step Simulation](#multi-step-simulation)
+    * [Shared Memory](#shared-memory)
+    * [Work-Per-Thread](#work-per-thread)
   * [Cuda](#cuda)
-* [Comparing Results with Previous Work](#comparing-results-with-previous-work)
+    * [LOP3](#lop3)
+    * [Warp Shuffle](#warp-shuffle)
+* [Results and Previous Work](#results-and-previous-work)
+* [Future Work](#future-work)
+* [Thanks](#thanks)
 <!-- TOC -->
 
 # A Nerdsnipe
@@ -296,8 +303,15 @@ We decided to use the [opencl3](https://crates.io/crates/opencl3/) crate for our
 OpenCL makes a distinction between the <emph>host</emph> (CPU) and <emph>device</emph> (usually GPU).
 
 There are some key differences when comparing writing code for a CPU versus writing OpenCL code.
-In particular, the memory of the device is usually separate from that of the host, which means explicit calls need to be made to move data back and forth.
-Furthermore, kernels (i.e. programs) need to be compiled and loaded into the device which are then all ran in parallel.
+In particular, the memory of the device is usually separate from that of the host, which means explicit calls need to be made to move data back and forth. 
+
+The device has many <emph>work-items</emph> (equivalent to threads on the CPU), each of which can execute code. 
+These are grouped into <emph>work-groups</emph>, allowing the work-items inside the group to communicate. 
+One of the ways work-items can communicate is via shared memory, which is memory that is only accessible by work-items in the same work-group.
+This is in contrast to global memory which is slower but accessible by all work-items.
+
+Furthermore, <emph>kernels</emph> (i.e. programs on the device) need to be compiled and loaded into the device which are then all ran in parallel.
+During compilation the work-group size and <emph>global work size</emph> (the total number of work-items) needs to be specified.
 
 Our first implementation was quite straightforward - a kernel that simulates a column for a single step with the same logic used on the CPU.
 During the step the kernel will load its neighbouring columns from *global* memory.
@@ -306,6 +320,8 @@ By repeatedly launching this kernel with the global work size equal to the dimen
 
 This basic implementation was already quite fast, but this was definitely not the fastest it could go.
 We started experimenting using different techniques and benchmarked them using [criterion](https://crates.io/crates/criterion) in order to determine what works and doesn't work.
+Benchmarking is important because the performance effect that a change to the code may have is sometimes very unpredictable, *especially* when working with GPUs.
+
 In the following subsections we will discuss the techniques that worked:
 * Multi-step simulation
 * Use shared memory (also called local memory)
@@ -313,18 +329,63 @@ In the following subsections we will discuss the techniques that worked:
 
 ### Multi-Step Simulation
 
+One very effective technique to speed up computation involves simulating more than one step per kernel call.
+This comes with the advantage of having decreased kernel launching overhead and a reduced number of accesses to global memory.
+
+But how does multi-step simulation work? 
+The core idea is to think about <emph>dirty cells</emph>, which are cells that may be incorrect after a given number of steps.
+If an area of `n x m` is simulated for `t` steps without using any information outside of that area, then only the inner area `(n-t) x (m-t)` will be correct, whereas the cells outside this area will be *dirty*.
+The following example shows how correctly simulated cells `O` turn into dirty cells `X`.
+
+```
+OOOOO -> XXXXX -> XXXXX
+OOOOO -> XOOOX -> XXXXX
+OOOOO -> XOOOX -> XXOXX
+OOOOO -> XOOOX -> XXXXX
+OOOOO -> XXXXX -> XXXXX
+```
+
+This example highlights that a tradeoff must be made when choosing the number of steps to simulate at once.
+If the number of steps is too large, then we will be left with mostly dirty cells which will need to be computed by overlapping blocks.
+However, if the number of steps is too low then we might not reap the benefits of multi-step simulation.
+
+The first setup we tried is loading 3 columns, with the goal of simulating only the middle one for 32 steps. This also requires a vertical padding of 32 cells.
+We can calculate what our percentage of <emph>effective computation</emph> is. This is the percentage of cells that we simulate that actually end up being written back to global memory.
+Horizontally, a third of the cells are written to memory, the two padding columns on the side are only used because we need to know the value of them to simulate the 32 steps.
+Vertically, assuming a workgroup size of 512, `2 * 32 / 512 = 8.75%` of the computation is wasted. 
+Combining these figures, `(512 - 2 * 32) / 512 * (1/3) = 29.2%` of the cells we simulate are written back to global memory. 
+That percentage is not that high, and we can do better.
+
+The setup that we settled on is loading 3 columns, but simulating the middle one for only 16 steps. 
+This is achieved by shifting the columns a bit, so we are simulating only half of the outer 2 columns.
+```
+Loaded: XXXX_XXXX YYYY_YYYY ZZZZ_ZZZZ
+Left:        XXXX_YYYY
+Right:                 YYYY_ZZZZ
+```
+
+Now `50%` of the simulation horizontally is effective, and again, this requires 16 cells of padding vertically as well.
+Using the same logic as above, now `46.9%` of the cells we simulate are written back to global memory.
+This is the best solution we found given the tradeoff discussed earlier.
+It has a good balance between the number of steps and the amount of wasted computation.
+
 ### Shared Memory
+
+Next, we noticed that work-items in the same work-group are communicating through global memory between each step.
+This is unnecessary, since we can instead use <emph>shared memory</emph>, which is a lot faster with the restriction of being only accessible by work-items in the same work-group.
+
+The cells now only need to be read to shared memory at the start of each kernel call, and written back to global memory at the end of each kernel call.
+This saves a lot of time that was previously wasted waiting for global memory.
 
 ### Work-Per-Thread
 
-[//]: # (Optimizations:)
-[//]: # (- Driven by benchmarks!)
-[//]: # (- Multistep &#40;requires simulating extra cells, discuss trade-off&#41;)
-[//]: # (- Shared memory to store & communicate intermediate results for multistep)
-[//]: # (- Discuss different layouts we tried)
-[//]: # (  - Final: Load 3 columns, simulate 2 using 16 bits)
-[//]: # (  - Simulating 3 columns is not worth it &#40;show wasted simulation calculation&#41;)
-[//]: # (- Work per thread)
+The overhead of starting a new work-item is small but still significant, so we want to minimize its impact.
+We do this by increasing the amount of work that a single work-item performs.
+
+The idea is that each work-item loads and simulates `N` vertically stacked columns instead of 1. 
+An additional advantage of this approach is that only the outermost columns needs to be communicated through shared memory, saving shared memory bandwidth.
+
+We found that an `N` of approximately 16 is optimal depending on the GPU that is used, giving significant performance improvements.
 
 ## Cuda
 
@@ -428,10 +489,11 @@ left[WORK_PER_THREAD + 1] = __shfl_down_sync(-1, left[1], 1);
 right[WORK_PER_THREAD + 1] = __shfl_down_sync(-1, right[1], 1);
 ```
 
-# Comparing Results with Previous Work
+# Results and Previous Work
 
 So how fast did we actually make it go? And was it significant?
 Thanks to our awesome university, we were allowed to use the high performance cluster (HPC) to experiment with several GPUs.
+Additionally, for completeness, we also included some CPU benchmarks.
 We measure our performance in cell updates per second (CUpS). 
 
 <table>
@@ -550,9 +612,43 @@ We measure our performance in cell updates per second (CUpS).
     </tbody>
 </table>
 
-From previous work using Parallel Bulk Computation:
+
+
+We compare our work with previous work from the [Bitwise Parallel Bulk Computation](https://doi.org/10.1142/S0129054116500404) paper.
+This paper performs some of the same optimizations that we do:
+- A packed representation using bits is used, similar to ours
+- Bitwise operations are used to compute the new cells using the state from the neighbours. This uses 59 bitwise instructions, which is a lot more than our 10 `lop3` instructions.
+- Multi-step simulation is used, but a square layout is used for the multistep, while we use a line. The square has a higher percentage of effective computation, but this is still slower because more communication with neighbouring work items is needed.
+- Warp shuffles are used as well, but because of the square layout mentioned above, more shuffles are required than in our implementation.
+
+The final performance from the paper is:
 
 | Implementation | Hardware  | Performance (CUpS) |
 |:--------------:|:---------:|:------------------:|
 |      CPU       |   "i7"    |     13.4×10^9      |
-|     GPGPU      |  Titan X  |    1.350×10^12     |
+|     GPGPU      |  Titan X  |    1.990×10^12     |
+
+We could sadly not get our hands on a Titan X for a fair comparison, but out of the GPUs above the Titan X is most closely resembled by the 1080Ti.
+The 1080Ti had a speed of 5.389×10^12 CUpS, which means our solution shows a 2.7x improvement in performance.
+
+# Future Work
+
+We have left out two optimization techniques in our final implementation.
+
+Firstly, we did not implement the large universes method described in the BPBC paper.
+Currently, the entire field is stored in GPU VRAM. 
+However, if the field does not fit inside VRAM, we need to load and simulate overlapping parts (universes) of it for a certain number of steps.
+This is similar to the way multistep simulation works, but on a way larger scale.
+
+Secondly, we did not implement sparse simulation.
+A sparse simulation is a simulation which can detect that certain areas of the field are <emph>dead</emph>, meaning these areas have reached a stable state. 
+These areas can then be safely skipped during simulation.
+Sparse simulation can have an incredibly large impact on simulation speed, but can also be incredibly hard to benchmark.
+
+Both of these techniques could be added to our implementation, but we did not find the time yet to do so.
+
+# Thanks
+
+This post was written by Julia Dijkstra and Jonathan Brouwer.
+
+Special thanks to Mathijs Molenaar for providing some ideas for further optimizations.

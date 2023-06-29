@@ -1,4 +1,10 @@
+// Stylized emphasize.
 emph {
   color: var(--accent);
   font-weight: bold;
+}
+
+// Give headers some space.
+h1 {
+  margin-top: 40px;
 }
