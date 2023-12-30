@@ -3,6 +3,9 @@ title = "Building a Redstone Simulator in Rust"
 date = 2023-05-25
 draft = true
 
+[extra]
+image = "/assets/game-of-life/thumbnail.png"
+
 [taxonomies]
 tags = ["rust", "minecraft", "redstone"]
 +++
