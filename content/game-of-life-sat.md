@@ -11,7 +11,7 @@ tags = ["rust", "game-of-life", "TODOODODODODODOOOO"]
 +++
 
 Half a year ago we [showed](/game-of-life) how game of life can be parallised, first on the CPU using SIMD, and then on the GPU.
-We discovered that CUDA has an instruction called <emph>lop3</emph>, which can encode an arbitrary 3-bit truth table, and applies that truth table to the bits of 3 registers. In this blogpost we (try to) find the minimum number of <emph>lop3</emph> instructions needed to solve game of life, using a SAT solver.
+We discovered that CUDA has an instruction called <emph>lop3</emph>, which can encode an arbitrary 3-bit truth table, and applies that truth table to the bits of 3 registers. In this blogpost we (try to) find the minimum number of lop3 instructions needed to solve game of life, using a SAT solver.
 
 <!-- more -->
 
@@ -30,7 +30,7 @@ The state of the cells are simultaneously updated in steps using the following r
 3) Any live cell with more than three live neighbours dies, as if caused by over-population.
 4) Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
 
-The goal of this blog post is to find a set of [lop3](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#logic-and-shift-instructions-lop3) instructions such that given a cell and the 8 neighbouring cells, we can determine next state of that cell. <emph>Lop3</emph> is an instruction that takes 3 inputs `a`, `b` and `c`, an output `d` and a look-up-table `LUT` which it uses to compute arbitrary bitwise logical operations.
+The goal of this blog post is to find a set of [lop3](https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#logic-and-shift-instructions-lop3) instructions such that given a cell and the 8 neighbouring cells, we can determine next state of that cell. Lop3 is an instruction that takes 3 inputs `a`, `b` and `c`, an output `d` and a look-up-table `LUT` which it uses to compute arbitrary bitwise logical operations.
 
 Using our human ingenuity we managed to find a set of 11 `lop3` instructions that does exactly that:
 ```
@@ -65,13 +65,30 @@ The code works as follows:
   - `two_three` is on, meaning the cell has two or three live neighbours.
   - `c0` is off, meaning the cell does not have more than 4 live neighbours.
 
-This means that we can do a single step using only 11 `lop3` instructions.
+This means that we can do a single step using only 11 `lop3` instructions. 
+But who's to say that 11 instructions is the best solution? Maybe we can do 10? or 9? 
 
 # Intro to SAT & CNF
 
-# Generating SAT from rust (maybe merge with section above?)
+A <emph>SAT solver</emph> can tell us! A SAT solver takes an arbitrary boolean formula, such as `(x | y) & (!x | !y)`, and it outputs one of:
+* <emph>SAT</emph> if the problem is "satisfiable", meaning that it has a solution. It will then also output a solution, such as `x = 1, y = 0` to the problem above.
+* <emph>UNSAT</emph> if the problem is "unsatisfiable", meaning that it has no solution. Some SAT solvers can then also produce a proof of impossibility. This is not relevant for this blogpost, but to see how this works, see [here](https://www.msoos.org/2022/04/proof-traces-for-sat-solvers/).
+
+SAT solvers take their input in a very specific form, called <emph>CNF</emph> (Conjuctive Normal Form).
+In CNF, variables are numbered starting from 1, and constraints are <emph>conjunctions</emph> of possibly negated variables.
+For example `1 2 -3` is equivalent to `1 | 2 | !3`. Every boolean formula can be represented as a set of CNF constraints. For example, see the following transformations:
+```
+1 | 2    =>  (1 2)
+1 & 2    =>  (1) (2)
+1 -> 2   =>  (!1 2)
+1 <-> 2  =>  (!1 2) (1 !2)
+```
 
 # Naive translation
+We'll <emph>encode</emph> our game of life problem into a boolean problem.
+
+
+
 - Decoding SAT solutions
 
 # Symmetries / Prune
