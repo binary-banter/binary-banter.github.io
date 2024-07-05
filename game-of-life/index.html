@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title></title>
+    
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+    <meta name="robots" content="noodp"/>
+
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/color/blue.css">
+
+    <link rel="stylesheet" href="/font-hack-subset.css">
+<meta property="og:image" content="&#x2F;assets&#x2F;game-of-life&#x2F;thumbnail.png"/></head>
+
+<body class="">
+<div class="container">
+    
+    <header class="header">
+        <div class="header__inner">
+            <div class="header__logo">
+                    
+                <a href="/" style="text-decoration: none;">
+                    <div class="logo">
+                      
+                            Binary Banter
+                        
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        
+        
+                <nav class="menu">
+            <ul class="menu__inner">
+                <li class="active"><a href="/">blog</a></li>
+            
+                <li><a href="/tags">tags</a></li>
+            
+                <li><a href="https://github.com/JonathanBrouwer/binary_banter" target="_blank" rel="noopener noreferrer">github</a></li>
+            </ul>
+        </nav>
+    
+    
+        
+    </header>
+    
+
+    <div class="content">
+        
+    <div class="post">
+        
+    <h1 class="post-title"><a href="/game-of-life/">Game of Life: How a nerdsnipe led to a fast implementation of game of life</a></h1>
+    <div class="post-meta-inline">
+        
+    <span class="post-date">
+            2023-06-29
+        </span>
+
+    </div>
+
+    
+        <span class="post-tags-inline">
+                :: tags:&nbsp;
+                <a class="post-tag" href="/tags/game-of-life/">#game-of-life</a>&nbsp;
+                <a class="post-tag" href="/tags/gpgpu/">#gpgpu</a>&nbsp;
+                <a class="post-tag" href="/tags/rust/">#rust</a>&nbsp;
+                <a class="post-tag" href="/tags/simd/">#simd</a></span>
+    
+
+        
+        <div class="post-content">
+            <p>Inspired by an Advent of Code problem, we spontaneously decided to explore Conway's Game of Life and discussed various techniques to solve it efficiently.
+This blogpost provides a concise summary of our weeks-long journey, where we delved into finding faster solutions for the Game of Life.</p>
+<span id="continue-reading"></span><h1 id="table-of-contents">Table of Contents</h1>
+<!-- TOC -->
+<ul>
+<li><a href="/game-of-life/#table-of-contents">Table of Contents</a></li>
+<li><a href="/game-of-life/#a-nerdsnipe">A Nerdsnipe</a></li>
+<li><a href="/game-of-life/#trivial-simulation">Trivial simulation</a></li>
+<li><a href="/game-of-life/#unleashing-the-power-of-parallelism-using-a-packed-representation">Unleashing the Power of Parallelism Using a Packed Representation</a>
+<ul>
+<li><a href="/game-of-life/#a-packed-representation-using-bits">A Packed Representation Using Bits</a></li>
+<li><a href="/game-of-life/#a-packed-representation-using-nibbles">A Packed Representation Using Nibbles</a></li>
+<li><a href="/game-of-life/#back-to-a-packed-representation-using-bits">Back to a Packed Representation Using Bits</a></li>
+</ul>
+</li>
+<li><a href="/game-of-life/#embracing-the-spectacle-of-parallelism-using-simd-and-multi-threading">Embracing the Spectacle of Parallelism Using SIMD and Multi-Threading</a></li>
+<li><a href="/game-of-life/#ascending-to-the-apex-of-parallelism-using-the-gpu">Ascending to the Apex of Parallelism Using the GPU</a>
+<ul>
+<li><a href="/game-of-life/#opencl">OpenCL</a>
+<ul>
+<li><a href="/game-of-life/#multi-step-simulation">Multi-Step Simulation</a></li>
+<li><a href="/game-of-life/#shared-memory">Shared Memory</a></li>
+<li><a href="/game-of-life/#work-per-thread">Work-Per-Thread</a></li>
+</ul>
+</li>
+<li><a href="/game-of-life/#cuda">Cuda</a>
+<ul>
+<li><a href="/game-of-life/#lop3">LOP3</a></li>
+<li><a href="/game-of-life/#warp-shuffle">Warp Shuffle</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="/game-of-life/#results-and-previous-work">Results and Previous Work</a></li>
+<li><a href="/game-of-life/#future-work">Future Work</a></li>
+<li><a href="/game-of-life/#thanks">Thanks</a></li>
+</ul>
+<!-- TOC -->
+<h1 id="a-nerdsnipe">A Nerdsnipe</h1>
+<p>On a sunny afternoon, for no particular reason, we decided to discuss an <a href="https://adventofcode.com/2020/day/11">Advent of Code problem</a> from a couple of years ago.
+This problem was about a cellular automaton which was strongly inspired by Conway's Game of Life.
+<a href="https://www.youtube.com/watch?v=C2vgICfQawE">Here</a> is an <emph>epic</emph> video showing what it looks like.</p>
+<p>Obviously we had to discuss how we would solve this problem in the fastest manner possible.
+One thing let to another, and needless to say, this discussion went on to consume weeks of our lives as we tried to find faster and faster solutions.</p>
+<p>This blogpost is a short summary of all the techniques we've tried to speed up Game of Life.</p>
+<p>The source code for this project is available on <a href="https://github.com/binary-banter/fast-game-of-life/">GitHub</a>.</p>
+<h1 id="trivial-simulation">Trivial simulation</h1>
+<p>Before we move on to explaining the techniques we developed, we will first give a short recap of how Game of Life works.
+The game is played on a rectangular grid populated by cells that can be either <emph>alive</emph> or <emph>dead</emph>.
+The state of the cells are simultaneously updated in steps using the following rules:</p>
+<ol>
+<li>Any live cell with fewer than two live neighbours dies, as if caused by under-population.</li>
+<li>Any live cell with two or three neighbours lives on to the next generation.</li>
+<li>Any live cell with more than three live neighbours dies, as if caused by over-population.</li>
+<li>Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.</li>
+</ol>
+<p>The simplest possible simulation of these rules works on a 2D array of booleans, literally following the rules above.
+For each cell the program evaluates its current state and number of live neighbours, which it uses to compute the next state to be stored in a secondary grid.
+The secondary grid is necessary because otherwise some cells might be using neighbours from the <em>next</em> step.
+Assuming booleans are stored as bytes, we store 1 cell per byte and need 9 memory accesses to determine its next state (1 for the center and 8 for its neighbours).</p>
+<p>At the end of the step, the two grids are swapped either inefficiently by copying the entire secondary grid back to the primary grid, or more efficiently by swapping their pointers.</p>
+<h1 id="unleashing-the-power-of-parallelism-using-a-packed-representation">Unleashing the Power of Parallelism Using a Packed Representation</h1>
+<p>The naive solution clearly doesn't make optimal use of memory.
+We not only need an entire byte to store something that essentially only needs 1 bit to indicate whether it is <em>dead</em> or <em>alive</em>,
+but we also need many memory accesses on top of that for just a single cell.</p>
+<h2 id="a-packed-representation-using-bits">A Packed Representation Using Bits</h2>
+<p>Our first idea to improve upon this solution was to use a <emph>packed representation</emph>, where each bit represents a cell.
+It would then be possible to retrieve cells by using a mask and shifts, making this solution slower than our original solution.</p>
+<h2 id="a-packed-representation-using-nibbles">A Packed Representation Using Nibbles</h2>
+<p>We can achieve a packed representation that is faster than our original by harnessing the power of parallelism.
+To make our lives easier for now, we store each cell in a <emph>nibble</emph> (4 bits).
+We store these nibbles in an array of <code>u64</code>s, which we will call <emph>columns</emph>.
+Cells can then be stored in a column like this:</p>
+<ul>
+<li>1001 1011 0000 0011 -&gt; 0x1001_1011_0000_0011</li>
+</ul>
+<p>Our goal is to find a way to simulate these 16 cells in parallel.
+Note that to count the neighbours of a cell, we could simply add their corresponding nibbles.
+The difficulty lies in shifting the neighbours around in such a way that they align, so that we can add them.</p>
+<p>To get the top and bottom neighbours of a cell, we can simply load the columns above and below the cell and add them.
+The neighbours on the sides are more tricky, shifting the columns left and right almost does the trick, but leaves out one nibble on either side that needs to be loaded from the neighbouring column.
+The following two tables show the cells 0 through 7 that we want to align with the center node <code>c</code>, so we can add them.
+The second table highlights the case where some of the cells might be in the column to the left or right.</p>
+<table><thead><tr><th style="text-align: center">left</th><th style="text-align: center">middle</th><th style="text-align: center">right</th></tr></thead><tbody>
+<tr><td style="text-align: center">xxxx xxxx xxxx xxxx</td><td style="text-align: center">xxxx x012 xxxx xxxx</td><td style="text-align: center">xxxx xxxx xxxx xxxx</td></tr>
+<tr><td style="text-align: center">xxxx xxxx xxxx xxxx</td><td style="text-align: center">xxxx x3c4 xxxx xxxx</td><td style="text-align: center">xxxx xxxx xxxx xxxx</td></tr>
+<tr><td style="text-align: center">xxxx xxxx xxxx xxxx</td><td style="text-align: center">xxxx x567 xxxx xxxx</td><td style="text-align: center">xxxx xxxx xxxx xxxx</td></tr>
+</tbody></table>
+<table><thead><tr><th style="text-align: center">left</th><th style="text-align: center">middle</th><th style="text-align: center">right</th></tr></thead><tbody>
+<tr><td style="text-align: center">xxxx xxxx xxxx xxx0</td><td style="text-align: center">12xx xxxx xxxx xxxx</td><td style="text-align: center">xxxx xxxx xxxx xxxx</td></tr>
+<tr><td style="text-align: center">xxxx xxxx xxxx xxx3</td><td style="text-align: center">c4xx xxxx xxxx xxxx</td><td style="text-align: center">xxxx xxxx xxxx xxxx</td></tr>
+<tr><td style="text-align: center">xxxx xxxx xxxx xxx5</td><td style="text-align: center">67xx xxxx xxxx xxxx</td><td style="text-align: center">xxxx xxxx xxxx xxxx</td></tr>
+</tbody></table>
+<p>In pseudocode, we can find the count of each cell as follows:</p>
+<pre data-lang="rs" style="background-color:#151515;color:#e8e8d3;" class="language-rs "><code class="language-rs" data-lang="rs"><span>top          = grid[i - </span><span style="color:#7697d6;">ROW</span><span>]
+</span><span>bottom       = grid[i + </span><span style="color:#7697d6;">ROW</span><span>]
+</span><span>
+</span><span style="color:#888888;">// Note that we shift with 60 = 15 * 4 to align the columns to the left and right.
+</span><span>left         = (grid[i] &gt;&gt; </span><span style="color:#cf6a4c;">4</span><span>) | (grid[i - </span><span style="color:#cf6a4c;">1</span><span>] &lt;&lt; </span><span style="color:#cf6a4c;">60</span><span>)
+</span><span>right        = (grid[i] &gt;&gt; </span><span style="color:#cf6a4c;">4</span><span>) | (grid[i - </span><span style="color:#cf6a4c;">1</span><span>] &lt;&lt; </span><span style="color:#cf6a4c;">60</span><span>)
+</span><span>
+</span><span>top_left     = (grid[i - </span><span style="color:#7697d6;">ROW</span><span>] &gt;&gt; </span><span style="color:#cf6a4c;">4</span><span>) | (grid[i - </span><span style="color:#7697d6;">ROW </span><span>- </span><span style="color:#cf6a4c;">1</span><span>] &lt;&lt; </span><span style="color:#cf6a4c;">60</span><span>)
+</span><span>top_right    = (grid[i - </span><span style="color:#7697d6;">ROW</span><span>] &lt;&lt; </span><span style="color:#cf6a4c;">4</span><span>) | (grid[i - </span><span style="color:#7697d6;">ROW </span><span>+ </span><span style="color:#cf6a4c;">1</span><span>] &gt;&gt; </span><span style="color:#cf6a4c;">60</span><span>)
+</span><span>bottom_left  = (grid[i + </span><span style="color:#7697d6;">ROW</span><span>] &gt;&gt; </span><span style="color:#cf6a4c;">4</span><span>) | (grid[i + </span><span style="color:#7697d6;">ROW </span><span>- </span><span style="color:#cf6a4c;">1</span><span>] &lt;&lt; </span><span style="color:#cf6a4c;">60</span><span>)
+</span><span>bottom_right = (grid[i + </span><span style="color:#7697d6;">ROW</span><span>] &lt;&lt; </span><span style="color:#cf6a4c;">4</span><span>) | (grid[i + </span><span style="color:#7697d6;">ROW </span><span>+ </span><span style="color:#cf6a4c;">1</span><span>] &gt;&gt; </span><span style="color:#cf6a4c;">60</span><span>)
+</span></code></pre>
+<p>After aligning the cells we can now simply add them together to find the number of neighbours for each cell.
+The following table show a grid of cells where 1 means alive and 0 dead.
+The bottom rows shows the number of neighbours for each cell for the central column.</p>
+<table><thead><tr><th style="text-align: center">left</th><th style="text-align: center">middle</th><th style="text-align: center">right</th></tr></thead><tbody>
+<tr><td style="text-align: center">xxxx xxxx xxxx xxx0</td><td style="text-align: center">1001 1011 1000 0011</td><td style="text-align: center">1xxx xxxx xxxx xxxx</td></tr>
+<tr><td style="text-align: center">xxxx xxxx xxxx xxx1</td><td style="text-align: center">1111 1000 0010 0110</td><td style="text-align: center">1xxx xxxx xxxx xxxx</td></tr>
+<tr><td style="text-align: center">xxxx xxxx xxxx xxx0</td><td style="text-align: center">1001 1000 1100 0011</td><td style="text-align: center">1xxx xxxx xxxx xxxx</td></tr>
+<tr><td style="text-align: center">-------------------</td><td style="text-align: center">-------------------</td><td style="text-align: center">-------------------</td></tr>
+<tr><td style="text-align: center"></td><td style="text-align: center">4446 5424 4411 1358</td><td style="text-align: center"></td></tr>
+</tbody></table>
+<p>The final challenge is to use the current state and these neighbour counts to compute the next state of the cells in parallel.
+The exact instructions may seem a bit weird, but they produce the same results as the rules laid out earlier.</p>
+<pre data-lang="rs" style="background-color:#151515;color:#e8e8d3;" class="language-rs "><code class="language-rs" data-lang="rs"><span style="color:#888888;">// start with the previous state
+</span><span>result  = grid[i]
+</span><span>
+</span><span style="color:#888888;">// if we have 1,3,5,7 live neighbours, we are born
+</span><span>result |= count
+</span><span>
+</span><span style="color:#888888;">// if we have 2,3,6,7 live neighbours, we survive
+</span><span>result &amp;= count &gt;&gt; </span><span style="color:#cf6a4c;">1
+</span><span>
+</span><span style="color:#888888;">// if we have 0,1,2,3,8 live neighbours, we survive
+</span><span>result &amp;= !(count &gt;&gt; </span><span style="color:#cf6a4c;">2</span><span>)
+</span><span>
+</span><span style="color:#888888;">// if we have 0-7 live neighbours, we survive
+</span><span>result &amp;= !(count &gt;&gt; </span><span style="color:#cf6a4c;">3</span><span>)
+</span><span>
+</span><span style="color:#888888;">// clear all bits that don&#39;t represent a cell
+</span><span>result &amp;= </span><span style="color:#cf6a4c;">0x1111_1111_1111_1111
+</span></code></pre>
+<h2 id="back-to-a-packed-representation-using-bits">Back to a Packed Representation Using Bits</h2>
+<p>So far we have stored a cell in each nibble, but we can actually implement a parallel simulator that stores a cell in each bit.
+This makes the logic a lot more complex to understand, but it does increase throughput.</p>
+<p>The addition of the 8 neighbouring cells can be written as:</p>
+<pre style="background-color:#151515;color:#e8e8d3;"><code><span>   a
+</span><span>   b
+</span><span>   c
+</span><span>   d
+</span><span>   e
+</span><span>   f
+</span><span>   g
+</span><span>   h
+</span><span>---- +
+</span><span>qrst
+</span></code></pre>
+<p>Where <code>t</code> is the least-significant bit of <code>count</code>, <code>s</code> the least-significant bit of <code>count &gt;&gt; 1</code>, etc.
+We need to find a way to produce <code>q</code>, <code>r</code>, <code>s</code>, and <code>t</code> using bit-level instructions (AND, OR, NOT, XOR) instead of using the ADD instruction, so that we can simulate all 64 cells in parallel.</p>
+<p>Luckily we recently took a course on Computer Arithmetic, which taught us exactly how to do this!
+What we need to build is called an <emph>8-bit counter</emph> as explained in <a href="https://ashkanyeganeh.com/wp-content/uploads/2020/03/computer-arithmetic-algorithms-2nd-edition-Behrooz-Parhami.pdf">Parhami's Computer Arithmetic book</a>.
+Technically this method only really works well for hardware, but for this problem it actually works just as well in software!</p>
+<p>We designed the following counter, where square brackets indicate full- and half-adders which are to be emulated in software.
+The important thing to take away is that we reduce the 8 neighbours down to <code>count = 4x + 2(y+z) + w</code>.</p>
+<pre style="background-color:#151515;color:#e8e8d3;"><code><span>      [a|
+</span><span>      |b|
+</span><span>      |c]
+</span><span>      [d|
+</span><span>      |e|
+</span><span>      |f]
+</span><span>      [g|
+</span><span>      |h]
+</span><span>--------- +
+</span><span>   [l|[i|
+</span><span>   |m||j|
+</span><span>   |n]|k]
+</span><span>--------- +
+</span><span> x  y  w
+</span><span>    z
+</span></code></pre>
+<p>To implement the above table in software, we first implement full- and half-adders in software:</p>
+<pre data-lang="rs" style="background-color:#151515;color:#e8e8d3;" class="language-rs "><code class="language-rs" data-lang="rs"><span style="color:#8fbfdc;">fn </span><span style="color:#fad07a;">half_adder</span><span>(a,b):
+</span><span>    sum = a ^ b
+</span><span>    carry = a &amp; b
+</span><span>    </span><span style="color:#8fbfdc;">return</span><span> carry, sum
+</span><span>
+</span><span style="color:#8fbfdc;">fn </span><span style="color:#fad07a;">full_adder</span><span>(a,b,c):
+</span><span>    temp = a ^ b
+</span><span>    sum = temp ^ c
+</span><span>    carry = (a &amp; b) | (temp &amp; c)
+</span><span>    </span><span style="color:#8fbfdc;">return</span><span> carry, sum
+</span></code></pre>
+<p>Next, we use the adders to implement the table above:</p>
+<pre data-lang="rs" style="background-color:#151515;color:#e8e8d3;" class="language-rs "><code class="language-rs" data-lang="rs"><span style="color:#888888;">// stage 0
+</span><span>l, i = full_adder(a,b,c)
+</span><span>m, j = full_adder(d,e,f)
+</span><span>n, k = half_adder(g,h)
+</span><span>
+</span><span style="color:#888888;">// stage 1
+</span><span>y, w = full_adder(i,j,k)
+</span><span>x, z = full_adder(l,m,n)
+</span></code></pre>
+<p>Finally, we use the results of the addition to update result:</p>
+<pre data-lang="rs" style="background-color:#151515;color:#e8e8d3;" class="language-rs "><code class="language-rs" data-lang="rs"><span style="color:#888888;">// start with the previous state
+</span><span>result  = grid[i]
+</span><span>
+</span><span style="color:#888888;">// if we have 1,3,5,7 live neighbours, we are born
+</span><span>result |= w;
+</span><span>
+</span><span style="color:#888888;">// if we have 2,3,6,7 live neighbours, we survive
+</span><span>result &amp;= (y ^ z);
+</span><span>
+</span><span style="color:#888888;">// if we have 0,1,2,3 live neighbours, we survive
+</span><span>result &amp;= ~x;
+</span></code></pre>
+<p>So we can now use this to simulate a fully packed <code>u64</code> of cells in parallel.</p>
+<h1 id="embracing-the-spectacle-of-parallelism-using-simd-and-multi-threading">Embracing the Spectacle of Parallelism Using SIMD and Multi-Threading</h1>
+<p>The story doesn't end there however!
+We have merely used parallelism on the scale of <code>u64</code>s, but most modern CPUs actually provide specialized instructions that work on registers of multiple <code>u64</code>s.
+These instructions are commonly referred to as Single-Instruction Multiple-Data, or <emph>SIMD</emph> for short.</p>
+<p>We use Rust's <a href="https://doc.rust-lang.org/std/simd/index.html">new nightly std::simd API</a> to achieve this.
+The API provides easy to use const-generic methods that abstract away the underlying intrinsics.</p>
+<p>For the most part the translation from <code>u64</code>s as columns to <code>N</code> <code>u64</code>s as columns, where <code>N</code> is the number of SIMD lanes, was quite straight forward.
+The only real hurdle we came across is the lack of register-wide bit-shifts.
+Instead of shifting the entire register, the lanes themselves are shifted.</p>
+<p>To remedy this problem we implemented helper functions. Below is our shift_left function.</p>
+<pre data-lang="rs" style="background-color:#151515;color:#e8e8d3;" class="language-rs "><code class="language-rs" data-lang="rs"><span style="color:#8fbfdc;">pub fn </span><span style="color:#fad07a;">shl_1</span><span>&lt;</span><span style="color:#8fbfdc;">const</span><span> N: </span><span style="color:#8fbfdc;">usize</span><span>&gt;(</span><span style="color:#ffb964;">v</span><span>: Simd&lt;</span><span style="color:#8fbfdc;">u64</span><span>, N&gt;) -&gt; Simd&lt;</span><span style="color:#8fbfdc;">u64</span><span>, N&gt;
+</span><span>where
+</span><span>    LaneCount&lt;N&gt;: SupportedLaneCount,
+</span><span>{
+</span><span>    </span><span style="color:#8fbfdc;">let</span><span> approx = (v &lt;&lt; Simd::splat(</span><span style="color:#cf6a4c;">1</span><span>));
+</span><span>
+</span><span>    </span><span style="color:#8fbfdc;">let mut</span><span> mask = [</span><span style="color:#cf6a4c;">0x00000_0000_0000_0001</span><span>; N];
+</span><span>    mask[N - </span><span style="color:#cf6a4c;">1</span><span>] = </span><span style="color:#cf6a4c;">0</span><span>;
+</span><span>
+</span><span>    </span><span style="color:#8fbfdc;">let</span><span> rotate = (v &gt;&gt; Simd::splat(</span><span style="color:#cf6a4c;">63</span><span>)).rotate_lanes_left::&lt;1&gt;();
+</span><span>    </span><span style="color:#8fbfdc;">let</span><span> neighbouring_bits = rotate &amp; Simd::from_array(mask);
+</span><span>    approx | neighbouring_bits
+</span><span>}
+</span></code></pre>
+<p>The function works as follows:</p>
+<ul>
+<li>First we approximate the shift, by shifting each lane left by 1. This works for all bits except the bits that should be shifted across lane boundaries.</li>
+<li>To get the remaining bits, we rotate the lanes left by one, then shift each lane right by 63.</li>
+<li>We mask the result of this so only the relevant bits are selected. Specifically, the lane that was rotated around the register should be ignored.</li>
+<li>Finally, we <code>OR</code> these results together.</li>
+</ul>
+<p>With the hardware available to us, we can now simulate 256 cells in parallel!
+However, this is not where the parallelism stops, since CPUs have multiple cores, we can take advantage of <emph>multi-threading</emph>.
+During each step, we can split the rows of the field into <code>N</code> equal-sized groups, each of which is simulated by a separate thread.
+We use a thread pool so the overhead of spawning the threads is amortized over the steps.</p>
+<p>While initially we thought that the Rust ownership model would hinder us when writing the results to the same array from multiple threads, Rust has a beautiful abstraction called <code>chunks_mut</code> that does exactly what we want.
+This splits a slice into <code>N</code> equal-sized groups. The rest of this change was trivial, requiring only a few changes in the way we index the arrays.</p>
+<p>Now we are fully using our CPU! But this is not the end of our journey...</p>
+<h1 id="ascending-to-the-apex-of-parallelism-using-the-gpu">Ascending to the Apex of Parallelism Using the GPU</h1>
+<p>We have now seen how we can efficiently pack cells into different datastructures and quickly calculate the next state for each cell.
+At the end of the last chapter we made our solution multi-threaded. Modern CPUs have many cores that can perform work at the same time, but GPUs actually have <em>thousands</em> of cores that can perform simple tasks at the same time.
+GPUs however have a vastly different model of computation and memory, so running our solution on the GPU is not trivial.
+Yet we were still determined to take a look into General Purpose GPU (<emph>GPGPU</emph>).</p>
+<p>There are two major frameworks for doing GPGPU: OpenCL and CUDA.
+Since CUDA is only available for NVidia GPUs, we decided to first focus on porting our solution to OpenCL.</p>
+<h2 id="opencl">OpenCL</h2>
+<p>We decided to use the <a href="https://crates.io/crates/opencl3/">opencl3</a> crate for our OpenCL implementation, since it provides a simple interface for working with OpenCL.
+OpenCL makes a distinction between the <emph>host</emph> (CPU) and <emph>device</emph> (usually GPU).</p>
+<p>There are some key differences when comparing writing code for a CPU versus writing OpenCL code.
+In particular, the memory of the device is usually separate from that of the host, which means explicit calls need to be made to move data back and forth.</p>
+<p>The device has many <emph>work-items</emph> (equivalent to threads on the CPU), each of which can execute code.
+These are grouped into <emph>work-groups</emph>, allowing the work-items inside the group to communicate.
+One of the ways work-items can communicate is via shared memory, which is memory that is only accessible by work-items in the same work-group.
+This is in contrast to global memory which is slower but accessible by all work-items.</p>
+<p>Furthermore, <emph>kernels</emph> (i.e. programs on the device) need to be compiled and loaded into the device which are then all ran in parallel.
+During compilation the work-group size and <emph>global work size</emph> (the total number of work-items) needs to be specified.</p>
+<p>Our first implementation was quite straightforward - a kernel that simulates a column for a single step with the same logic used on the CPU.
+During the step the kernel will load its neighbouring columns from <em>global</em> memory.
+This kernel takes two buffers of 32-bit unsigned integers <code>field</code> and <code>new_field</code>, which are swapped after the step has been computed for all columns.
+By repeatedly launching this kernel with the global work size equal to the dimensions of the grid any number of steps can be simulated.</p>
+<p>This basic implementation was already quite fast, but this was definitely not the fastest it could go.
+We started experimenting using different techniques and benchmarked them using <a href="https://crates.io/crates/criterion">criterion</a> in order to determine what works and doesn't work.
+Benchmarking is important because the performance effects of changes to the code may be very unpredictable, <em>especially</em> when working with GPUs.</p>
+<p>In the following subsections we will discuss the techniques that worked:</p>
+<ul>
+<li>Multi-step simulation</li>
+<li>Use shared memory (also called local memory)</li>
+<li>Increase work-per-thread (WPT)</li>
+</ul>
+<h3 id="multi-step-simulation">Multi-Step Simulation</h3>
+<p>One very effective technique to speed up computation involves simulating more than one step per kernel call.
+This comes with the advantage of having decreased kernel launching overhead and a reduced number of accesses to global memory.</p>
+<p>But how does multi-step simulation work?
+The core idea is to think about <emph>dirty cells</emph>, which are cells that may be incorrect after a given number of steps.
+If an area of <code>n x m</code> is simulated for <code>t</code> steps without using any information outside of that area, then only the inner area <code>(n-t) x (m-t)</code> will be correct, whereas the cells outside this area will be <em>dirty</em>.
+The following example shows how correctly simulated cells <code>O</code> turn into dirty cells <code>X</code>.</p>
+<pre style="background-color:#151515;color:#e8e8d3;"><code><span>OOOOO -&gt; XXXXX -&gt; XXXXX
+</span><span>OOOOO -&gt; XOOOX -&gt; XXXXX
+</span><span>OOOOO -&gt; XOOOX -&gt; XXOXX
+</span><span>OOOOO -&gt; XOOOX -&gt; XXXXX
+</span><span>OOOOO -&gt; XXXXX -&gt; XXXXX
+</span></code></pre>
+<p>This example highlights that a tradeoff must be made when choosing the number of steps to simulate at once.
+If the number of steps is too large, then we will be left with mostly dirty cells which will need to be computed by overlapping blocks.
+However, if the number of steps is too low then we might not reap the benefits of multi-step simulation.</p>
+<p>The first setup we tried is loading 3 columns, with the goal of simulating only the middle one for 32 steps. This also requires a vertical padding of 32 cells.
+We can calculate what our percentage of <emph>effective computation</emph> is. This is the percentage of cells that we simulate that actually end up being written back to global memory.
+Horizontally, a third of the cells are written to memory, the two padding columns on the side are only used because we need to know the value of them to simulate the 32 steps.
+Vertically, assuming a workgroup size of 512, <code class="formula">2 * 32 / 512 = 8.75%</code> of the computation is wasted.
+Combining these figures, <code class="formula">(512 - 2 * 32) / 512 * (1/3) = 29.2%</code> of the cells we simulate are written back to global memory.
+That percentage is not that high, and we can do better.</p>
+<p>The setup that we settled on is loading 3 columns, but simulating the middle one for only 16 steps.
+This is achieved by shifting the columns a bit, so we are simulating only half of the outer 2 columns.</p>
+<pre style="background-color:#151515;color:#e8e8d3;"><code><span>Loaded: XXXX_XXXX YYYY_YYYY ZZZZ_ZZZZ
+</span><span>Left:        XXXX_YYYY
+</span><span>Right:                 YYYY_ZZZZ
+</span></code></pre>
+<p>Now <code>50%</code> of the simulation horizontally is effective, and again, this requires 16 cells of padding vertically as well.
+Using the same logic as above, now <code>46.9%</code> of the cells we simulate are written back to global memory.
+This is the best solution we found given the tradeoff discussed earlier.
+It has a good balance between the number of steps and the amount of wasted computation.</p>
+<h3 id="shared-memory">Shared Memory</h3>
+<p>Next, we noticed that work-items in the same work-group are communicating through global memory between each step.
+This is unnecessary, since we can instead use <emph>shared memory</emph>, which is a lot faster with the restriction of being only accessible by work-items in the same work-group.</p>
+<p>The cells now only need to be read to shared memory at the start of each kernel call, and written back to global memory at the end of each kernel call.
+This saves a lot of time that was previously wasted waiting for global memory.</p>
+<h3 id="work-per-thread">Work-Per-Thread</h3>
+<p>The overhead of starting a new work-item is small but still significant, so we want to minimize its impact.
+We do this by increasing the amount of work that a single work-item performs.</p>
+<p>The idea is that each work-item loads and simulates <code>N</code> vertically stacked columns instead of 1.
+An additional advantage of this approach is that only the outermost columns needs to be communicated through shared memory, saving shared memory bandwidth.</p>
+<p>We found that an <code>N</code> of approximately 16 is optimal depending on the GPU that is used, giving significant performance improvements.</p>
+<h2 id="cuda">Cuda</h2>
+<p>OpenCL is a beautiful abstraction that allows you to write portable code that runs on a CPU, Amd GPU, Nvidia GPU, FPGA and more.
+This is an amazing feat given how different these architectures are, but this does mean that some of the details are abstracted away.
+Details that, if used properly, could allow for <em>more optimizations</em>!</p>
+<h3 id="lop3">LOP3</h3>
+<p>One of these details is knowledge about the CUDA PTX instruction set and control over the instructions that are generated.
+We noticed while taking a look at our code using <a href="https://godbolt.org/">Godbolt</a>,
+that the compiler sometimes used an instruction called <a href="https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#logic-and-shift-instructions-lop3">lop3</a> (lookup-3).
+What we discovered is that this is an <em>amazing</em> instruction!
+It is an instruction that takes 3 inputs <code>a</code>, <code>b</code> and <code>c</code>, an output <code>d</code> and a look-up-table <code>LUT</code> which it uses to compute arbitrary bitwise logical operations.
+The following table shows how the <code>LUT = 0b1001_0110</code> encodes the ternary bitwise XOR operator for inputs <code>a</code>, <code>b</code> and <code>c</code>.</p>
+<table><thead><tr><th style="text-align: center">a</th><th style="text-align: center">b</th><th style="text-align: center">c</th><th style="text-align: center">d</th></tr></thead><tbody>
+<tr><td style="text-align: center">0</td><td style="text-align: center">0</td><td style="text-align: center">0</td><td style="text-align: center">0</td></tr>
+<tr><td style="text-align: center">0</td><td style="text-align: center">0</td><td style="text-align: center">1</td><td style="text-align: center">1</td></tr>
+<tr><td style="text-align: center">0</td><td style="text-align: center">1</td><td style="text-align: center">0</td><td style="text-align: center">1</td></tr>
+<tr><td style="text-align: center">0</td><td style="text-align: center">1</td><td style="text-align: center">1</td><td style="text-align: center">0</td></tr>
+<tr><td style="text-align: center">1</td><td style="text-align: center">0</td><td style="text-align: center">0</td><td style="text-align: center">1</td></tr>
+<tr><td style="text-align: center">1</td><td style="text-align: center">0</td><td style="text-align: center">1</td><td style="text-align: center">0</td></tr>
+<tr><td style="text-align: center">1</td><td style="text-align: center">1</td><td style="text-align: center">0</td><td style="text-align: center">0</td></tr>
+<tr><td style="text-align: center">1</td><td style="text-align: center">1</td><td style="text-align: center">1</td><td style="text-align: center">1</td></tr>
+</tbody></table>
+<p>Our step operation is a function that takes 9 integers as input (the 8 neighbours and the cell itself), and produces a new integer by looking at each 9-tuple of bits.
+This means that if we can build our 9-input step function using 3-input lop3 instructions, it could potentially be a lot faster.</p>
+<p>Using our human ingenuity we managed to find a set of 11 <code>lop3</code> instructions that does exactly that:</p>
+<pre style="background-color:#151515;color:#e8e8d3;"><code><span>a8        = lop3.b32     a2        a1 a0 0b10010110
+</span><span>b0        = lop3.b32     a2        a1 a0 0b11101000
+</span><span>a9        = lop3.b32     a5        a4 a3 0b10010110
+</span><span>b1        = lop3.b32     a5        a4 a3 0b11101000
+</span><span>       
+</span><span>aA        = lop3.b32     a8        a7 a6 0b10010110
+</span><span>b2        = lop3.b32     a8        a7 a6 0b11101000
+</span><span>b3        = lop3.b32     b2        b1 b0 0b10010110
+</span><span>c0        = lop3.b32     b2        b1 b0 0b11101000
+</span><span>
+</span><span>parity    = lop3.b32 center        aA a9 0b11110110
+</span><span>two_three = lop3.b32     b3        aA a9 0b01111000
+</span><span>center    = lop3.b32 parity two_three c0 0b01000000
+</span></code></pre>
+<p>The code works as follows:</p>
+<ul>
+<li>The first 8 instructions are equivalent to the full-adder stages in the CPU code.
+<ul>
+<li><code>0b10010110</code> is a 3-bit XOR, producing the sum bit of the full-adder.</li>
+<li><code>0b11101000</code> is an at-least-two operation, producing the carry bit of the full-adder.</li>
+</ul>
+</li>
+<li>These instructions have reduced the information down to the bits <code>c0</code>, <code>b3</code>, <code>a9</code>, and <code>aA</code>, which represent <code>count = 4*c0 + 2*b3 + (a9 + aA)</code>.</li>
+<li><code>parity</code> has the following meaning:
+<ul>
+<li>If center is on, stay on</li>
+<li>If the number of live neighbours is odd (determined from a9 and aA), turn on.
+This will make sure the cell turns on if it has 3 live neighbours.
+Note that this will also erroneously turn the cell on if 1, 5 or 7 neighbours are on, but in those cases the cell will be killed by the final instruction.</li>
+</ul>
+</li>
+<li><code>two_three</code> is on if the total value of <code>b2</code>, <code>a9</code>, and <code>aA</code> is 2 or 3. Remember that <code>b2</code> has a weight of 2.</li>
+<li>Finally, the cell is live if:
+<ul>
+<li><code>parity</code> is on, meaning the cell is alive or the number of live neighbours is odd.</li>
+<li><code>two_three</code> is on, meaning the cell has two or three live neighbours.</li>
+<li><code>c0</code> is off, meaning the cell does not have more than 4 live neighbours.</li>
+</ul>
+</li>
+</ul>
+<p>This means that we can do a single step using only 11 <code>lop3</code> instructions, and the instructions necessary to construct the <code>a0</code>-<code>a7</code> neighbours, which are still the same as before.
+However, we are not done yet! This is the solution that we as humans could come up with, but we gave the problem to a SAT-solver which found a solution with 10 <code>lop3</code> instructions.
+The first 6 instructions are the same as ours, but the last 4 are complete magic to us, if you can understand what is happening here we're happy to hear it, but for now we've just accepted that a SAT-solver has beaten us.</p>
+<pre style="background-color:#151515;color:#e8e8d3;"><code><span>// reduction stage
+</span><span>a8        = lop3.b32     a2     a1     a0 0b10010110
+</span><span>b0        = lop3.b32     a2     a1     a0 0b11101000
+</span><span>a9        = lop3.b32     a5     a4     a3 0b10010110
+</span><span>b1        = lop3.b32     a5     a4     a3 0b11101000
+</span><span>aA        = lop3.b32     a8     a7     a6 0b10010110
+</span><span>b2        = lop3.b32     a8     a7     a6 0b11101000
+</span><span>
+</span><span>// magic stage dreamt up by an insane SAT-solver
+</span><span>magic0    = lop3.b32     a9     aA center 0b00111110
+</span><span>magic1    = lop3.b32 magic0 center     b2 0b01011011
+</span><span>magic2    = lop3.b32 magic1     b1     b0 0b10010001
+</span><span>center    = lop3.b32 magic2 magic0 magic1 0b01011000
+</span></code></pre>
+<p>A blog post about how we managed to translate this problem (and others) to a form that a SAT-solver can work with is coming soon.</p>
+<h3 id="warp-shuffle">Warp Shuffle</h3>
+<p>The next observation we made is that the way we use shared memory is very regular, work items write to shared memory after each step, and at the start of the next step work items read the results of only their neighbouring work items.
+This is something that can be efficiently encoded using a <emph>warp shuffle</emph> instead. A warp is a set of upto 32 work items, which can send information to each other using a warp shuffle.</p>
+<p>At the start of each step, each work item sends the state of the cells it is simulating to each neighbour, while simultaneously receiving the state of the neighbouring cells.
+This completely eliminates the need for shared memory, allowing us to make use of the very fast register memory.
+One drawback of this approach is that we now have a maximum workgroup size of 32, while earlier we were able to run with a workgroup size of 512.
+This is not as drastic as it may seem, since each workgroup is split by the GPU into warps anyway, there is only some extra overhead in creating the extra workgroups.
+Furthermore, due to the earlier technique of increasing the work-per-thread, the percentage of effective computation remains approximately the same.</p>
+<pre data-lang="c" style="background-color:#151515;color:#e8e8d3;" class="language-c "><code class="language-c" data-lang="c"><span>left[</span><span style="color:#cf6a4c;">0</span><span>] = </span><span style="color:#ffb964;">__shfl_up_sync</span><span>(-</span><span style="color:#cf6a4c;">1</span><span>, left[WORK_PER_THREAD], </span><span style="color:#cf6a4c;">1</span><span>);
+</span><span>right[</span><span style="color:#cf6a4c;">0</span><span>] = </span><span style="color:#ffb964;">__shfl_up_sync</span><span>(-</span><span style="color:#cf6a4c;">1</span><span>, right[WORK_PER_THREAD], </span><span style="color:#cf6a4c;">1</span><span>);
+</span><span>left[WORK_PER_THREAD + </span><span style="color:#cf6a4c;">1</span><span>] = </span><span style="color:#ffb964;">__shfl_down_sync</span><span>(-</span><span style="color:#cf6a4c;">1</span><span>, left[</span><span style="color:#cf6a4c;">1</span><span>], </span><span style="color:#cf6a4c;">1</span><span>);
+</span><span>right[WORK_PER_THREAD + </span><span style="color:#cf6a4c;">1</span><span>] = </span><span style="color:#ffb964;">__shfl_down_sync</span><span>(-</span><span style="color:#cf6a4c;">1</span><span>, right[</span><span style="color:#cf6a4c;">1</span><span>], </span><span style="color:#cf6a4c;">1</span><span>);
+</span></code></pre>
+<h1 id="results-and-previous-work">Results and Previous Work</h1>
+<p>So how fast did we actually make it go? And was it significant?
+Thanks to our awesome university, we were allowed to use the high performance cluster (HPC) to experiment with several GPUs.
+Additionally, for completeness, we also included some CPU benchmarks.
+We measure performance in cell updates per second (CUpS).</p>
+<table style="text-align: center;">
+    <thead>
+        <tr>
+            <th>Implementation</th>
+            <th>Hardware</th>
+            <th>Performance (CUpS)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td rowspan=3>Trivial</td>
+            <td>i7 5820K</td>
+            <td>0.219×10^9</td>
+        </tr>
+        <tr>
+            <td>i7 6700K</td>
+            <td>0.282×10^9</td>
+        </tr>
+        <tr>
+            <td>i9 11900K</td>
+            <td>0.378x10^9</td>
+        </tr>
+        <tr>
+            <td rowspan=2>Packed Nibbles</td>
+            <td>i7 5820K</td>
+            <td>4.393×10^9</td>
+        </tr>
+        <tr>
+            <td>i7 6700K</td>
+            <td>5.065×10^9</td>
+        </tr>
+        <tr>
+            <td rowspan=2>Packed Bits</td>
+            <td>i7 5820K</td>
+            <td>6.539×10^9</td>
+        </tr>
+        <tr>
+            <td>i7 6700K</td>
+            <td>7.033×10^9</td>
+        </tr>
+        <tr>
+            <td rowspan=3>SIMD</td>
+            <td>i7 5820K</td>
+            <td>22.600x10^9</td>
+        </tr>
+        <tr>
+            <td>i7 6700K</td>
+            <td>27.875x10^9</td>
+        </tr>
+        <tr>
+            <td>i9 11900K</td>
+            <td>48.266x10^9</td>
+        </tr>
+        <tr>
+            <td rowspan=3>SIMD Multi-threaded</td>
+            <td>i7 5820K</td>
+            <td>45.813x10^9</td>
+        </tr>
+        <tr>
+            <td>i7 6700K</td>
+            <td>71.105x10^9</td>
+        </tr>
+        <tr>
+            <td>i9 11900K</td>
+            <td>296.019x10^9</td>
+        </tr>
+        <tr style="height: 40px"></tr>
+        <tr>
+            <td rowspan=6>OpenCL</td>
+            <td>1050 Notebook</td>
+            <td>0.760×10^12</td>
+        </tr>
+        <tr>
+            <td>1080Ti</td>
+            <td>4.775×10^12</td>
+        </tr>
+        <tr>
+            <td>V100</td>
+            <td>6.678×10^12</td>
+        </tr>
+        <tr>
+            <td>2080Ti</td>
+            <td>6.783×10^12</td>
+        </tr>
+        <tr>
+            <td>A40</td>
+            <td>8.055×10^12</td>
+        </tr>
+        <tr>
+            <td>7900XTX</td>
+            <td>8.939×10^12</td>
+        </tr>
+        <tr>
+            <td rowspan=5>CUDA</td>
+            <td>1050 Notebook</td>
+            <td>1.068×10^12</td>
+        </tr>
+        <tr>
+            <td>1080Ti</td>
+            <td>5.389×10^12</td>
+        </tr>
+       <tr>
+            <td>V100</td>
+            <td>9.871×10^12</td>
+        </tr>
+       <tr>
+            <td>2080Ti</td>
+            <td>9.666×10^12</td>
+        </tr>
+       <tr>
+            <td>A40</td>
+            <td>11.720x10^12</td>
+        </tr>
+    </tbody>
+</table>
+<p>We compare our work with previous work from the <a href="https://doi.org/10.1142/S0129054116500404">Bitwise Parallel Bulk Computation</a> paper.
+This paper performs some of the same optimizations that we do:</p>
+<ul>
+<li>A packed representation using bits is used, similar to ours</li>
+<li>Bitwise operations are used to compute the new cells using the state from the neighbours. This uses 59 bitwise instructions, which is a lot more than our 10 <code>lop3</code> instructions.</li>
+<li>Multi-step simulation is used, but a square layout is used for the multistep, while we use a line. The square has a higher percentage of effective computation, but this is still slower because more communication with neighbouring work items is needed.</li>
+<li>Warp shuffles are used as well, but because of the square layout mentioned above, more shuffles are required than in our implementation.</li>
+</ul>
+<p>The final performance from the paper is:</p>
+<table><thead><tr><th style="text-align: center">Implementation</th><th style="text-align: center">Hardware</th><th style="text-align: center">Performance (CUpS)</th></tr></thead><tbody>
+<tr><td style="text-align: center">CPU</td><td style="text-align: center">"i7"</td><td style="text-align: center">13.4×10^9</td></tr>
+<tr><td style="text-align: center">GPGPU</td><td style="text-align: center">Titan X</td><td style="text-align: center">1.990×10^12</td></tr>
+</tbody></table>
+<p>We could sadly not get our hands on a Titan X for a fair comparison, but out of the GPUs above the Titan X is most closely resembled by the 1080Ti.
+The 1080Ti had a speed of 5.389×10^12 CUpS, which means our solution shows a 2.7x improvement in performance.</p>
+<h1 id="future-work">Future Work</h1>
+<p>We have left out two optimization techniques in our final implementation.</p>
+<p>Firstly, we did not implement the large universes method described in the BPBC paper.
+Currently, the entire field is stored in GPU VRAM.
+However, if the field does not fit inside VRAM, we need to load and simulate overlapping parts (universes) of it for a certain number of steps.
+This is similar to the way multistep simulation works, but on a way larger scale.</p>
+<p>Secondly, we did not implement sparse simulation.
+A sparse simulation is a simulation which can detect that certain areas of the field are <emph>dead</emph>, meaning these areas have reached a stable state.
+These areas can then be safely skipped during simulation.
+Sparse simulation can have an incredibly large impact on simulation speed, but can also be incredibly hard to benchmark.</p>
+<p>Both of these techniques could be added to our implementation, but we did not find the time yet to do so.</p>
+<h1 id="thanks">Thanks</h1>
+<p>This post was written by <emph>Julia Dijkstra</emph> and <emph>Jonathan Brouwer</emph>.</p>
+<p>Special thanks to <emph>Mathijs Molenaar</emph> for providing some ideas for further optimizations.</p>
+
+        </div>
+
+        
+    </div>
+
+    </div>
+
+    
+    <footer class="footer">
+        <div class="footer__inner">
+                <div class="copyright">
+                        <span>© 
+    2024
+ Powered by <a href="https://www.getzola.org/">Zola</a></span>
+                    <span class="copyright-theme">
+                        <span class="copyright-theme-sep">:: </span>
+                        Theme: <a href="https://github.com/pawroman/zola-theme-terminimal/">Terminimal</a> by pawroman
+                    </span>
+                </div>
+            </div>
+    </footer>
+    
+
+</div>
+</body>
+
+</html>

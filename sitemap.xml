@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+        <loc>/</loc>
+    </url>
+    <url>
+        <loc>/game-of-life/</loc>
+        <lastmod>2023-06-29</lastmod>
+    </url>
+    <url>
+        <loc>/tags/</loc>
+    </url>
+    <url>
+        <loc>/tags/game-of-life/</loc>
+    </url>
+    <url>
+        <loc>/tags/gpgpu/</loc>
+    </url>
+    <url>
+        <loc>/tags/rust/</loc>
+    </url>
+    <url>
+        <loc>/tags/simd/</loc>
+    </url>
+</urlset>
