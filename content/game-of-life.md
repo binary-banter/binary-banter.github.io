@@ -238,10 +238,10 @@ result  = grid[i]
 result |= w;
 
 // if we have 2,3,6,7 live neighbours, we survive
-center &= (y ^ z);
+result &= (y ^ z);
 
 // if we have 0,1,2,3 live neighbours, we survive
-center &= ~x;
+result &= ~x;
 ```
 
 So we can now use this to simulate a fully packed `u64` of cells in parallel.
