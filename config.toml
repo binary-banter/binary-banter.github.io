@@ -15,7 +15,6 @@ taxonomies = [
 ]
 
 [markdown]
-highlight_code = true
 highlight_theme = "boron"
 
 [extra]
